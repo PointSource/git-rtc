@@ -15,7 +15,7 @@ var maxBuffer = 1000 * 1000 * 1024;
 
 function convertToEmail(name) {
   // convert the name from "John Doe" to "john.doe@domain"
-  return [name.toLowerCase().split(/\s+/).join('.'), '@', defaultDomain].join();
+  return [name.toLowerCase().split(/\s+/).join('.'), '@', defaultDomain].join('');
 }
 
 function processHistoryItem(history, index) {
