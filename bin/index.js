@@ -105,46 +105,86 @@ function createCommitMessage(change) {
   5. Accept the next changeset from RTC.
   6. Repeat from step 2.
  */
-exec(scm + ' show history -j -u ' + user + ' -P ' + password, {
+function discardChanges(callback) {
+  exec(scm + ' show history -j -m 100 -u ' + user + ' -P ' + password, {
     maxBuffer: maxBuffer
   }, function (err, stdout, stderr) {
     if (err) throw err;
 
+    // get the response and reverse all the change sets in it
     var jazzResponse = JSON.parse(stdout),
-        change = jazzResponse.changes[0],
-        comment = createCommitMessage(change),
-        name = (change.author || defaultAuthor),
-        email = convertToEmail(change.author || defaultAuthor),
-        author = name + ' <' + email + '>',
-        modified = new Date(change.modified).toISOString();
+        changes = jazzResponse.changes;
 
-    exec('git add -A', function (err, stdout, stderr) {
+    // cannot discard the first change
+    if (changes.length === 1) {
+      return callback();
+    }
+
+    // to be safe, we can discard all but the first changeset, which might be
+    // the last element in the array
+    var uuids = changes.slice(0, -1).map(function (change) {
+      return change.uuid;
+    });
+
+    exec(scm + ' discard -u ' + user + ' -P ' + password + ' --overwrite-uncommitted ' + uuids.join(' '), {
+      maxBuffer: maxBuffer
+    }, function (err, stdout, stderr) {
       if (err) throw err;
 
-      exec(['GIT_COMMITTER_EMAIL="' + email + '"',
-          'GIT_COMMITTER_NAME="' + name + '"',
-          'GIT_COMMITTER_DATE="' + modified + '"',
-          'git commit',
-          '-m "' + comment + '"',
-          '--author="' + author + '"',
-          '--date=' + modified,
-          '--allow-empty'].join(' '), function (err, stdout, stderr) {
+      // recurse and attempt to discard more changes
+      discardChanges(callback);
+    });
+  });
+}
+
+discardChanges(walkThroughHistory);
+
+function walkThroughHistory() {
+  exec('git init', function (err) {
+    if (err) throw err;
+
+    exec(scm + ' show history -j -u ' + user + ' -P ' + password, {
+      maxBuffer: maxBuffer
+    }, function (err, stdout, stderr) {
+      if (err) throw err;
+
+      var jazzResponse = JSON.parse(stdout),
+          change = jazzResponse.changes[0],
+          comment = createCommitMessage(change),
+          name = (change.author || defaultAuthor),
+          email = convertToEmail(change.author || defaultAuthor),
+          author = name + ' <' + email + '>',
+          modified = new Date(change.modified).toISOString();
+
+      exec('git add -A', function (err, stdout, stderr) {
         if (err) throw err;
 
-        exec(scm + ' show status -i in:cbC -j -u ' + user + ' -P ' + password, {
-            maxBuffer: maxBuffer
-          }, function (err, stdout, stderr) {
-            if (err) throw err;
+        exec(['GIT_COMMITTER_EMAIL="' + email + '"',
+            'GIT_COMMITTER_NAME="' + name + '"',
+            'GIT_COMMITTER_DATE="' + modified + '"',
+            'git commit',
+            '-m "' + comment + '"',
+            '--author="' + author + '"',
+            '--date=' + modified,
+            '--allow-empty'].join(' '), function (err, stdout, stderr) {
+          if (err) throw err;
 
-            var jazzResponse = JSON.parse(stdout);
+          exec(scm + ' show status -i in:cbC -j -u ' + user + ' -P ' + password, {
+              maxBuffer: maxBuffer
+            }, function (err, stdout, stderr) {
+              if (err) throw err;
 
-            // get the RTC change set history and reverse it to get it in
-            // chronological order
-            var orderedHistory = jazzResponse.workspaces[0]
-                .components[0]['incoming-changes'].reverse();
+              var jazzResponse = JSON.parse(stdout);
 
-            processHistoryItem(orderedHistory, 0);
+              // get the RTC change set history and reverse it to get it in
+              // chronological order
+              var orderedHistory = jazzResponse.workspaces[0]
+                  .components[0]['incoming-changes'].reverse();
+
+              processHistoryItem(orderedHistory, 0);
+            });
           });
         });
       });
-    });
+  });
+}
