@@ -4,7 +4,7 @@ This project migrates RTC repositories to git, keeping the history.
 
 # Install
 
-To run the program, you must have `lcsm` on your PATH.
+To run the program, you must have `lscm` on your PATH.
 Follow these steps to run the application.
 
     chmod +x bin/index.js
