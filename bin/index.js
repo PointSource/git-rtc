@@ -3,7 +3,7 @@
 var exec = require('child_process').exec;
 var fs = require('fs');
 
-var scm = 'lscm';
+var scm = 'scm';
 var user = process.env.RTC_USER;
 var password = process.env.RTC_PASSWORD;
 var defaultAuthor = process.env.AUTHOR;
@@ -64,10 +64,10 @@ function processHistoryItem(history, index) {
         if (err) throw err;
 
         // commit these changes
-        echoAndExec(['GIT_COMMITTER_EMAIL="' + email + '"',
-          'GIT_COMMITTER_NAME="' + name + '"',
-          'GIT_COMMITTER_DATE="' + modified + '"',
-          'git commit',
+        echoAndExec(['set GIT_COMMITTER_EMAIL="' + email + '"',
+          '& set GIT_COMMITTER_NAME="' + name + '"',
+          '& set GIT_COMMITTER_DATE="' + modified + '"',
+          '& git commit',
           '-m "' + comment + '"',
           '--author="' + author + '"',
           '--date=' + modified,
@@ -170,10 +170,10 @@ function walkThroughHistory() {
       echoAndExec('git add -A', function (err, stdout, stderr) {
         if (err) throw err;
 
-        echoAndExec(['GIT_COMMITTER_EMAIL="' + email + '"',
-            'GIT_COMMITTER_NAME="' + name + '"',
-            'GIT_COMMITTER_DATE="' + modified + '"',
-            'git commit',
+        echoAndExec(['set GIT_COMMITTER_EMAIL="' + email + '"',
+            '& set GIT_COMMITTER_NAME="' + name + '"',
+            '& set GIT_COMMITTER_DATE="' + modified + '"',
+            '& git commit',
             '-m "' + comment + '"',
             '--author="' + author + '"',
             '--date=' + modified,
