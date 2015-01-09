@@ -10,6 +10,11 @@ var defaultAuthor = process.env.AUTHOR;
 var defaultDomain = process.env.DOMAIN;
 var component = process.env.COMPONENT;
 
+var userPass = "";
+if (user) {
+  userPass = ' -u ' + user + ' -P ' + password + " ";
+}
+
 // some requests print a lot of information
 // increase the buffer to handle the size of these requests
 var maxBuffer = 1000 * 1000 * 1024;
@@ -30,7 +35,7 @@ function processHistoryItem(history, index) {
       workitem = change['workitem-label'];
   
   // list the changes for this UUID so we can get the full work item and comment
-  echoAndExec(scm + ' list changes ' + uuid + ' -u ' + user + ' -P ' + password + ' -j', {
+  echoAndExec(scm + ' list changes ' + uuid + userPass + ' -j', {
       maxBuffer: maxBuffer
     }, function (err, stdout, stderr) {
     if (err) throw err;
@@ -45,7 +50,7 @@ function processHistoryItem(history, index) {
         uuid = change.uuid;
 
     // accept changes from RTC
-    echoAndExec(scm + ' accept ' + uuid + ' -u ' + user + ' -P ' + password + ' --overwrite-uncommitted', {
+    echoAndExec(scm + ' accept ' + uuid + userPass + ' --overwrite-uncommitted', {
         maxBuffer: maxBuffer
       }, function (err, stdout, stderr) {
       if (err) throw err;
@@ -107,7 +112,7 @@ function createCommitMessage(change) {
   6. Repeat from step 2.
  */
 function discardChanges(callback) {
-  echoAndExec(scm + ' show history -j -m 100 -C ' + component + ' -u ' + user + ' -P ' + password, {
+  echoAndExec(scm + ' show history -j -m 100 -C ' + component + userPass, {
     maxBuffer: maxBuffer
   }, function (err, stdout, stderr) {
     if (err) throw err;
@@ -127,7 +132,7 @@ function discardChanges(callback) {
       return change.uuid;
     });
 
-    echoAndExec(scm + ' discard -u ' + user + ' -P ' + password + ' --overwrite-uncommitted ' + uuids.join(' '), {
+    echoAndExec(scm + ' discard ' + userPass + ' --overwrite-uncommitted ' + uuids.join(' '), {
       maxBuffer: maxBuffer
     }, function (err, stdout, stderr) {
       if (err) throw err;
@@ -144,7 +149,7 @@ function walkThroughHistory() {
   echoAndExec('git init', function (err) {
     if (err) throw err;
 
-    echoAndExec(scm + ' show history -j -C ' + component + ' -u ' + user + ' -P ' + password, {
+    echoAndExec(scm + ' show history -j -C ' + component + userPass, {
       maxBuffer: maxBuffer
     }, function (err, stdout, stderr) {
       if (err) throw err;
@@ -170,7 +175,7 @@ function walkThroughHistory() {
             '--allow-empty'].join(' '), function (err, stdout, stderr) {
           if (err) throw err;
 
-          echoAndExec(scm + ' show status -i in:cbC -j -u ' + user + ' -P ' + password, {
+          echoAndExec(scm + ' show status -i in:cbC -j ' + userPass, {
               maxBuffer: maxBuffer
             }, function (err, stdout, stderr) {
               if (err) throw err;
