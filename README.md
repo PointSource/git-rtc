@@ -4,8 +4,26 @@ This project migrates RTC repositories to git, keeping the history.
 
 # Install
 
-To run the program, you must have `lscm` on your PATH.  `lscm` can be found on Jazz.net: (https://jazz.net/downloads/rational-team-concert/releases/5.0.2?p=allDownloads).  Look in the "Plain .zip Files" section for "SCM Tools"
+## Jazz SCM tool
+To run the program, you must have `lscm` on your PATH.  `lscm` can be found on Jazz.net: https://jazz.net/downloads/rational-team-concert/releases/5.0?p=allDownloads.  Look in the "Plain .zip Files" section for "SCM Tools".
 
+* If you aren't using the IBM JVM, edit the scm.ini to remove the following 3 lines
+
+```
+-Xshareclasses:nonfatal
+-Xquickstart
+-Xdump:system:events=systhrow,filter=java/lang/OutOfMemoryError,request=exclusive+prepwalk
+
+```
+
+* Log into Jazzhub: ```lscm login -r https://hub.jazz.net/ccm01 -n local -u <userid> -P <password>```
+
+* Create a workspace: ```lscm create workspace -r local -s "Currency SDK 1.0" "breynolds | Currency"```
+
+* Load 1 component from the workspace into the current directory: ```lscm load -r local "breynolds | Currency" <component>```
+
+
+## Running the conversion tool
 Follow these steps to run the application.
 
     chmod +x bin/index.js
