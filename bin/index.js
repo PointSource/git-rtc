@@ -27,58 +27,47 @@ function convertToEmail(name) {
 function processHistoryItem(history, index) {
   if (index >= history.length) return;
 
-  var change = history[index],
-      author = change.author,
-      uuid = change.uuid,
-      comment = change.comment,
-      modified = new Date(change.modified).toISOString(),
-      workitem = change['workitem-label'];
+  var change = history[index];
+  var author = change.author;
+  var uuid = change.uuid;
+  var comment = change.comment;
+  var modified = new Date(change.modified).toISOString();
+  var workitem = change['workitem-label'];
 
-  // list the changes for this UUID so we can get the full work item and comment
-  echoAndExec(scm + ' list changes ' + uuid + userPass + ' -j', {
-      maxBuffer: maxBuffer
-    }, function (err, stdout, stderr) {
+  var comment = createCommitMessage(change);
+  var name = (change.author || defaultAuthor);
+  var email = convertToEmail(name);
+  // the author in the form of "John Doe <john.doe@domain>"
+  var author = name + ' <' + email + '>';
+
+  // accept changes from RTC
+  echoAndExec(scm + ' accept ' + uuid + userPass + ' --overwrite-uncommitted', {
+    maxBuffer: maxBuffer
+  }, function (err, stdout, stderr) {
     if (err) throw err;
 
     console.log(stdout);
-    var jazzResponse = JSON.parse(stdout),
-        change = jazzResponse.changes[0],
-        comment = createCommitMessage(change),
-        name = (change.author || defaultAuthor),
-        email = convertToEmail(change.author || defaultAuthor),
-        // the author in the form of "John Doe <john.doe@domain>"
-        author = name + ' <' + email + '>',
-        uuid = change.uuid;
-
-    // accept changes from RTC
-    echoAndExec(scm + ' accept ' + uuid + userPass + ' --overwrite-uncommitted', {
-        maxBuffer: maxBuffer
-      }, function (err, stdout, stderr) {
+    // add all changes to git
+    echoAndExec('git add -A', {
+      maxBuffer: maxBuffer
+    }, function (err, stdout, stderr) {
       if (err) throw err;
 
-      console.log(stdout);
-      // add all changes to git
-      echoAndExec('git add -A', {
+      // commit these changes
+      echoAndExec(['GIT_COMMITTER_EMAIL="' + email + '"',
+        'GIT_COMMITTER_NAME="' + name + '"',
+        'GIT_COMMITTER_DATE="' + modified + '"',
+        'git commit',
+        '-m "' + comment + '"',
+        '--author="' + author + '"',
+        '--date=' + modified,
+        '--allow-empty'].join(' '), {
         maxBuffer: maxBuffer
       }, function (err, stdout, stderr) {
         if (err) throw err;
 
-        // commit these changes
-        echoAndExec(['GIT_COMMITTER_EMAIL="' + email + '"',
-          'GIT_COMMITTER_NAME="' + name + '"',
-          'GIT_COMMITTER_DATE="' + modified + '"',
-          'git commit',
-          '-m "' + comment + '"',
-          '--author="' + author + '"',
-          '--date=' + modified,
-          '--allow-empty'].join(' '), {
-          maxBuffer: maxBuffer
-        }, function (err, stdout, stderr) {
-          if (err) throw err;
-
-          // process the next item
-          processHistoryItem(history, index + 1);
-        });
+        // process the next item
+        processHistoryItem(history, index + 1);
       });
     });
   });
@@ -119,7 +108,7 @@ function discardChanges(callback) {
   }, function (err, stdout, stderr) {
     if (err) throw err;
 
-    console.log(stdout);
+    // console.log(stdout);
     // get the response and reverse all the change sets in it
     var jazzResponse = JSON.parse(stdout),
         changes = jazzResponse.changes;
@@ -158,7 +147,7 @@ function walkThroughHistory() {
     }, function (err, stdout, stderr) {
       if (err) throw err;
 
-      console.log(stdout);
+      // console.log(stdout);
       var jazzResponse = JSON.parse(stdout),
           change = jazzResponse.changes[0],
           comment = createCommitMessage(change),
@@ -185,7 +174,7 @@ function walkThroughHistory() {
             }, function (err, stdout, stderr) {
               if (err) throw err;
 
-              console.log(stdout);
+              // console.log(stdout);
               var jazzResponse = JSON.parse(stdout);
 
               // get the RTC change set history and reverse it to get it in
