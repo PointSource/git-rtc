@@ -11,20 +11,29 @@ if (isWindows)
 else
   var scm = "lscm";
 
+// some requests print a lot of information
+// increase the buffer to handle the size of these requests
+var maxBuffer = 1000 * 1000 * 1024;
+
 var user = process.env.RTC_USER;
 var password = process.env.RTC_PASSWORD;
 var defaultAuthor = process.env.AUTHOR;
 var defaultDomain = process.env.DOMAIN;
 var componentOption = process.env.COMPONENT ? "-C " + process.env.COMPONENT : "";
 
-var userPass = "";
-if (user) {
-  userPass = ' -u ' + user + ' -P ' + password + " ";
-}
+if (!defaultAuthor || !defaultDomain) {
+  console.log("You must set AUTHOR and DOMAIN environment variables");
+} else {
+  var userPass = "";
+  if (user) {
+    userPass = ' -u ' + user + ' -P ' + password + " ";
+  }
 
-// some requests print a lot of information
-// increase the buffer to handle the size of these requests
-var maxBuffer = 1000 * 1000 * 1024;
+  if (process.argv[2] == "continue")
+    walkThroughHistory();
+  else
+    discardChanges(makeFirstCommit);
+}
 
 function convertToEmail(name) {
   // convert the name from "John Doe" to "john.doe@domain"
@@ -163,9 +172,8 @@ function discardChanges(callback) {
   });
 }
 
-discardChanges(walkThroughHistory);
 
-function walkThroughHistory() {
+function makeFirstCommit() {
   echoAndExec('git init', function (err) {
     if (err) throw err;
 
@@ -189,27 +197,31 @@ function walkThroughHistory() {
         gitCommit(email, name, modified, comment, author, function(err, stdout, stderr) {
           if (err) throw err;
 
-          echoAndExec(scm + ' show status -i in:cbC -j ' + userPass, {
-              maxBuffer: maxBuffer
-            }, function (err, stdout, stderr) {
-              if (err) throw err;
-
-              // console.log(stdout);
-              var jazzResponse = JSON.parse(stdout);
-
-              // get the RTC change set history and reverse it to get it in
-              // chronological order
-              var orderedHistory = jazzResponse.workspaces[0].components[0]['incoming-baselines'].reverse().reduce(function(history, baseline) {
-                return history.concat(baseline.changes.reverse());
-              }, []);
-
-              orderedHistory = orderedHistory.concat(jazzResponse.workspaces[0].components[0]['incoming-changes'].reverse());
-
-              processHistoryItem(orderedHistory, 0);
-            });
-          });
+          walkThroughHistory();
         });
       });
+    });
+  });
+}
+
+function walkThroughHistory() {
+  echoAndExec(scm + ' show status -i in:cbC -j ' + userPass, {
+      maxBuffer: maxBuffer
+    }, function (err, stdout, stderr) {
+      if (err) throw err;
+
+      // console.log(stdout);
+      var jazzResponse = JSON.parse(stdout);
+
+      // get the RTC change set history and reverse it to get it in
+      // chronological order
+      var orderedHistory = jazzResponse.workspaces[0].components[0]['incoming-baselines'].reverse().reduce(function(history, baseline) {
+        return history.concat(baseline.changes.reverse());
+      }, []);
+
+      orderedHistory = orderedHistory.concat(jazzResponse.workspaces[0].components[0]['incoming-changes'].reverse());
+
+      processHistoryItem(orderedHistory, 0);
   });
 }
 
