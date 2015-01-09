@@ -15,7 +15,7 @@ var user = process.env.RTC_USER;
 var password = process.env.RTC_PASSWORD;
 var defaultAuthor = process.env.AUTHOR;
 var defaultDomain = process.env.DOMAIN;
-var component = process.env.COMPONENT;
+var componentOption = process.env.COMPONENT ? "-C " + process.env.COMPONENT : "";
 
 var userPass = "";
 if (user) {
@@ -130,7 +130,7 @@ function createCommitMessage(change) {
   6. Repeat from step 2.
  */
 function discardChanges(callback) {
-  echoAndExec(scm + ' show history -j -m 100 -C ' + component + userPass, {
+  echoAndExec(scm + ' show history -j -m 100 ' + componentOption + userPass, {
     maxBuffer: maxBuffer
   }, function (err, stdout, stderr) {
     if (err) throw err;
@@ -169,7 +169,7 @@ function walkThroughHistory() {
   echoAndExec('git init', function (err) {
     if (err) throw err;
 
-    echoAndExec(scm + ' show history -j -C ' + component + userPass, {
+    echoAndExec(scm + ' show history -j ' + componentOption + userPass, {
       maxBuffer: maxBuffer
     }, function (err, stdout, stderr) {
       if (err) throw err;
