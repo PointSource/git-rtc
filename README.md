@@ -18,9 +18,9 @@ To run the program, you must have `lscm` on your PATH.  `lscm` can be found on J
 
 * Log into Jazzhub: ```lscm login -r https://hub.jazz.net/ccm01 -n local -u <userid> -P <password>```
 
-* Create a workspace: ```lscm create workspace -r local -s "Currency SDK 1.0" "breynolds | Currency"```
+* Create a workspace: ```lscm create workspace -r local -s <stream> <workspace>```
 
-* Load 1 component from the workspace into the current directory: ```lscm load -r local "breynolds | Currency" <component>```
+* Load 1 component from the workspace into the current directory: ```lscm load -r local -i <workspace> <component>```
 
 
 ## Running the conversion tool

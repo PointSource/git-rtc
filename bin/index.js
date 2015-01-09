@@ -40,7 +40,13 @@ function convertToEmail(name) {
   return [name.toLowerCase().split(/\s+/).join('.'), '@', defaultDomain].join('');
 }
 
-function gitCommit(email, name, modified, comment, author, next) {
+function gitCommit(change, next) {
+  var comment = createCommitMessage(change);
+  var name = (change.author || defaultAuthor);
+  var email = convertToEmail(name);
+  var author = name + ' <' + email + '>';
+  var modified = new Date(change.modified).toISOString();
+
   if (isWindows) {
     // commit these changes
     echoAndExec(['set GIT_COMMITTER_EMAIL="' + email + '"',
@@ -73,17 +79,7 @@ function processHistoryItem(history, index) {
   if (index >= history.length) return;
 
   var change = history[index];
-  var author = change.author;
   var uuid = change.uuid;
-  var comment = change.comment;
-  var modified = new Date(change.modified).toISOString();
-  var workitem = change['workitem-label'];
-
-  var comment = createCommitMessage(change);
-  var name = (change.author || defaultAuthor);
-  var email = convertToEmail(name);
-  // the author in the form of "John Doe <john.doe@domain>"
-  var author = name + ' <' + email + '>';
 
   // accept changes from RTC
   echoAndExec(scm + ' accept ' + uuid + userPass + ' --overwrite-uncommitted', {
@@ -99,7 +95,7 @@ function processHistoryItem(history, index) {
       if (err) throw err;
 
       // commit these changes
-      gitCommit(email, name, modified, comment, author, function(err, stdout, stderr) {
+      gitCommit(change, function(err, stdout, stderr) {
         if (err) throw err;
 
         // process the next item
@@ -117,15 +113,17 @@ function createCommitMessage(change) {
   if (change.workitems && change.workitems.length > 0) {
     // message is in a format similar to "12345 The work item description"
     message = [change.workitems[0]['workitem-number'],
-      change.workitems[0]['workitem-label']].join(' ');
+               change.workitems[0]['workitem-label']].join(' ');
 
     // if there is a comment, append it to the message as a new paragraph
     if (comment) {
       message = [message, comment].join('\n\n');
     }
   } else {
-    message = change.comment;
+    message = comment;
   }
+
+  message = message.replace(/\n/, '\\\n');
 
   return message;
 }
@@ -183,18 +181,13 @@ function makeFirstCommit() {
       if (err) throw err;
 
       // console.log(stdout);
-      var jazzResponse = JSON.parse(stdout),
-          change = jazzResponse.changes[0],
-          comment = createCommitMessage(change),
-          name = (change.author || defaultAuthor),
-          email = convertToEmail(change.author || defaultAuthor),
-          author = name + ' <' + email + '>',
-          modified = new Date(change.modified).toISOString();
+      var jazzResponse = JSON.parse(stdout);
+      var change = jazzResponse.changes[0];
 
       echoAndExec('git add -A', function (err, stdout, stderr) {
         if (err) throw err;
 
-        gitCommit(email, name, modified, comment, author, function(err, stdout, stderr) {
+        gitCommit(change, function(err, stdout, stderr) {
           if (err) throw err;
 
           walkThroughHistory();
