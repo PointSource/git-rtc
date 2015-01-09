@@ -12,12 +12,13 @@ Follow these steps to run the application.
 
 And while in your RTC component's directory, run the following command:
 
-    RTC_USER=user RTC_PASSWORD=password AUTHOR="John Doe" DOMAIN="example.com" path/to/git-rtc/bin/index.js
+    RTC_USER=user RTC_PASSWORD=password AUTHOR="John Doe" DOMAIN="example.com" COMPONENT=foo path/to/git-rtc/bin/index.js
 
 * RTC_USER is the user name you use to login to the repository
 * RTC_PASSWORD is the password for your RTC user
 * AUTHOR is your name. RTC does not give back author information for a changeset when the author is the current user
 * DOMAIN is the default domain you wish to give your historic users in git
+* COMPONENT is the RTC component
 
 The application converts users into emails by transforming the name to lowercase and changing spaces to dots.
 It then appeands '@' and DOMAIN.

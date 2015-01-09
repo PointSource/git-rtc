@@ -8,6 +8,7 @@ var user = process.env.RTC_USER;
 var password = process.env.RTC_PASSWORD;
 var defaultAuthor = process.env.AUTHOR;
 var defaultDomain = process.env.DOMAIN;
+var component = process.env.COMPONENT;
 
 // some requests print a lot of information
 // increase the buffer to handle the size of these requests
@@ -106,7 +107,7 @@ function createCommitMessage(change) {
   6. Repeat from step 2.
  */
 function discardChanges(callback) {
-  exec(scm + ' show history -j -m 100 -u ' + user + ' -P ' + password, {
+  exec(scm + ' show history -j -m 100 -C ' + component + ' -u ' + user + ' -P ' + password, {
     maxBuffer: maxBuffer
   }, function (err, stdout, stderr) {
     if (err) throw err;
@@ -143,7 +144,7 @@ function walkThroughHistory() {
   exec('git init', function (err) {
     if (err) throw err;
 
-    exec(scm + ' show history -j -u ' + user + ' -P ' + password, {
+    exec(scm + ' show history -j -C ' + component + ' -u ' + user + ' -P ' + password, {
       maxBuffer: maxBuffer
     }, function (err, stdout, stderr) {
       if (err) throw err;
