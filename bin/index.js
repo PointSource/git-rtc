@@ -33,13 +33,14 @@ function processHistoryItem(history, index) {
       comment = change.comment,
       modified = new Date(change.modified).toISOString(),
       workitem = change['workitem-label'];
-  
+
   // list the changes for this UUID so we can get the full work item and comment
   echoAndExec(scm + ' list changes ' + uuid + userPass + ' -j', {
       maxBuffer: maxBuffer
     }, function (err, stdout, stderr) {
     if (err) throw err;
 
+    console.log(stdout);
     var jazzResponse = JSON.parse(stdout),
         change = jazzResponse.changes[0],
         comment = createCommitMessage(change),
@@ -55,6 +56,7 @@ function processHistoryItem(history, index) {
       }, function (err, stdout, stderr) {
       if (err) throw err;
 
+      console.log(stdout);
       // add all changes to git
       echoAndExec('git add -A', {
         maxBuffer: maxBuffer
@@ -117,6 +119,7 @@ function discardChanges(callback) {
   }, function (err, stdout, stderr) {
     if (err) throw err;
 
+    console.log(stdout);
     // get the response and reverse all the change sets in it
     var jazzResponse = JSON.parse(stdout),
         changes = jazzResponse.changes;
@@ -137,6 +140,7 @@ function discardChanges(callback) {
     }, function (err, stdout, stderr) {
       if (err) throw err;
 
+      console.log(stdout);
       // recurse and attempt to discard more changes
       discardChanges(callback);
     });
@@ -154,6 +158,7 @@ function walkThroughHistory() {
     }, function (err, stdout, stderr) {
       if (err) throw err;
 
+      console.log(stdout);
       var jazzResponse = JSON.parse(stdout),
           change = jazzResponse.changes[0],
           comment = createCommitMessage(change),
@@ -180,6 +185,7 @@ function walkThroughHistory() {
             }, function (err, stdout, stderr) {
               if (err) throw err;
 
+              console.log(stdout);
               var jazzResponse = JSON.parse(stdout);
 
               // get the RTC change set history and reverse it to get it in
