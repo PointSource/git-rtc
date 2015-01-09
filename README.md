@@ -28,12 +28,38 @@ Follow these steps to run the application.
 
     chmod +x bin/index.js
 
+On Windows,
+
+	git config --global core.autocrlf false
+
+Add a .gitignore to your directory:
+
+```
+node_modules
+bower_components
+/.jazz5
+/.metadata
+```
+
 And while in your RTC component's directory, run the following command:
 
-    RTC_USER=user RTC_PASSWORD=password AUTHOR="John Doe" DOMAIN="example.com" COMPONENT=foo path/to/git-rtc/bin/index.js
+Mac:
 
-* RTC_USER is the user name you use to login to the repository
-* RTC_PASSWORD is the password for your RTC user
+    RTC_USER=user RTC_PASSWORD=password AUTHOR="John Doe" DOMAIN="example.com" COMPONENT=foo node path/to/git-rtc/bin/index.js
+
+Windows:
+
+```
+set RTC_USER=user
+set RTC_PASSWORD=password
+set AUTHOR="John Doe"
+set DOMAIN="example.com"
+set COMPONENT=foo
+node path/to/git-rtc/bin/index.js
+```
+
+* RTC_USER is the user name you use to login to the repository (optional)
+* RTC_PASSWORD is the password for your RTC user (optional)
 * AUTHOR is your name. RTC does not give back author information for a changeset when the author is the current user
 * DOMAIN is the default domain you wish to give your historic users in git
 * COMPONENT is the RTC component
