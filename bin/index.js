@@ -30,7 +30,7 @@ function processHistoryItem(history, index) {
       workitem = change['workitem-label'];
   
   // list the changes for this UUID so we can get the full work item and comment
-  exec(scm + ' list changes ' + uuid + ' -u ' + user + ' -P ' + password + ' -j', {
+  echoAndExec(scm + ' list changes ' + uuid + ' -u ' + user + ' -P ' + password + ' -j', {
       maxBuffer: maxBuffer
     }, function (err, stdout, stderr) {
     if (err) throw err;
@@ -45,19 +45,19 @@ function processHistoryItem(history, index) {
         uuid = change.uuid;
 
     // accept changes from RTC
-    exec(scm + ' accept ' + uuid + ' -u ' + user + ' -P ' + password + ' --overwrite-uncommitted', {
+    echoAndExec(scm + ' accept ' + uuid + ' -u ' + user + ' -P ' + password + ' --overwrite-uncommitted', {
         maxBuffer: maxBuffer
       }, function (err, stdout, stderr) {
       if (err) throw err;
 
       // add all changes to git
-      exec('git add -A', {
+      echoAndExec('git add -A', {
         maxBuffer: maxBuffer
       }, function (err, stdout, stderr) {
         if (err) throw err;
 
         // commit these changes
-        exec(['GIT_COMMITTER_EMAIL="' + email + '"',
+        echoAndExec(['GIT_COMMITTER_EMAIL="' + email + '"',
           'GIT_COMMITTER_NAME="' + name + '"',
           'GIT_COMMITTER_DATE="' + modified + '"',
           'git commit',
@@ -107,7 +107,7 @@ function createCommitMessage(change) {
   6. Repeat from step 2.
  */
 function discardChanges(callback) {
-  exec(scm + ' show history -j -m 100 -C ' + component + ' -u ' + user + ' -P ' + password, {
+  echoAndExec(scm + ' show history -j -m 100 -C ' + component + ' -u ' + user + ' -P ' + password, {
     maxBuffer: maxBuffer
   }, function (err, stdout, stderr) {
     if (err) throw err;
@@ -127,7 +127,7 @@ function discardChanges(callback) {
       return change.uuid;
     });
 
-    exec(scm + ' discard -u ' + user + ' -P ' + password + ' --overwrite-uncommitted ' + uuids.join(' '), {
+    echoAndExec(scm + ' discard -u ' + user + ' -P ' + password + ' --overwrite-uncommitted ' + uuids.join(' '), {
       maxBuffer: maxBuffer
     }, function (err, stdout, stderr) {
       if (err) throw err;
@@ -141,10 +141,10 @@ function discardChanges(callback) {
 discardChanges(walkThroughHistory);
 
 function walkThroughHistory() {
-  exec('git init', function (err) {
+  echoAndExec('git init', function (err) {
     if (err) throw err;
 
-    exec(scm + ' show history -j -C ' + component + ' -u ' + user + ' -P ' + password, {
+    echoAndExec(scm + ' show history -j -C ' + component + ' -u ' + user + ' -P ' + password, {
       maxBuffer: maxBuffer
     }, function (err, stdout, stderr) {
       if (err) throw err;
@@ -157,10 +157,10 @@ function walkThroughHistory() {
           author = name + ' <' + email + '>',
           modified = new Date(change.modified).toISOString();
 
-      exec('git add -A', function (err, stdout, stderr) {
+      echoAndExec('git add -A', function (err, stdout, stderr) {
         if (err) throw err;
 
-        exec(['GIT_COMMITTER_EMAIL="' + email + '"',
+        echoAndExec(['GIT_COMMITTER_EMAIL="' + email + '"',
             'GIT_COMMITTER_NAME="' + name + '"',
             'GIT_COMMITTER_DATE="' + modified + '"',
             'git commit',
@@ -170,7 +170,7 @@ function walkThroughHistory() {
             '--allow-empty'].join(' '), function (err, stdout, stderr) {
           if (err) throw err;
 
-          exec(scm + ' show status -i in:cbC -j -u ' + user + ' -P ' + password, {
+          echoAndExec(scm + ' show status -i in:cbC -j -u ' + user + ' -P ' + password, {
               maxBuffer: maxBuffer
             }, function (err, stdout, stderr) {
               if (err) throw err;
@@ -188,4 +188,9 @@ function walkThroughHistory() {
         });
       });
   });
+}
+
+function echoAndExec(cmd, options, callback) {
+  console.log(cmd);
+  return exec(cmd, options, callback);
 }
