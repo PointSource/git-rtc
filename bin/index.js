@@ -179,8 +179,11 @@ function walkThroughHistory() {
 
               // get the RTC change set history and reverse it to get it in
               // chronological order
-              var orderedHistory = jazzResponse.workspaces[0]
-                  .components[0]['incoming-changes'].reverse();
+              var orderedHistory = jazzResponse.workspaces[0].components[0]['incoming-baselines'].reverse().reduce(function(history, baseline) {
+                return history.concat(baseline.changes.reverse());
+              }, []);
+
+              orderedHistory = orderedHistory.concat(jazzResponse.workspaces[0].components[0]['incoming-changes'].reverse());
 
               processHistoryItem(orderedHistory, 0);
             });
