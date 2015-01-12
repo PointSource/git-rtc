@@ -78,28 +78,38 @@ function gitCommit(change, next) {
 function processHistoryItem(history, index) {
   if (index >= history.length) return;
 
-  var change = history[index];
-  var uuid = change.uuid;
+  var uuid = history[index].uuid;
 
-  // accept changes from RTC
-  echoAndExec(scm + ' accept ' + uuid + userPass + ' --overwrite-uncommitted', {
-    maxBuffer: maxBuffer
+  // list the changes for this UUID so we can get the full work item comment
+  echoAndExec(scm + ' list changes ' + uuid + userPass + ' -j', {
+      maxBuffer: maxBuffer
   }, function (err, stdout, stderr) {
     if (err) throw err;
 
-    console.log(stdout);
-    // add all changes to git
-    echoAndExec('git add -A', {
+    // console.log(stdout);
+    var jazzResponse = JSON.parse(stdout);
+    var change = jazzResponse.changes[0];
+
+    // accept changes from RTC
+    echoAndExec(scm + ' accept ' + uuid + userPass + ' --overwrite-uncommitted', {
       maxBuffer: maxBuffer
     }, function (err, stdout, stderr) {
       if (err) throw err;
 
-      // commit these changes
-      gitCommit(change, function(err, stdout, stderr) {
+      console.log(stdout);
+      // add all changes to git
+      echoAndExec('git add -A', {
+        maxBuffer: maxBuffer
+      }, function (err, stdout, stderr) {
         if (err) throw err;
 
-        // process the next item
-        processHistoryItem(history, index + 1);
+        // commit these changes
+        gitCommit(change, function(err, stdout, stderr) {
+          if (err) throw err;
+
+          // process the next item
+          processHistoryItem(history, index + 1);
+        });
       });
     });
   });
