@@ -47,31 +47,20 @@ function gitCommit(change, next) {
   var author = name + ' <' + email + '>';
   var modified = new Date(change.modified).toISOString();
 
-  if (isWindows) {
-    // commit these changes
-    echoAndExec(comment, ['set GIT_COMMITTER_EMAIL="' + email + '"',
-      '& set GIT_COMMITTER_NAME="' + name + '"',
-      '& set GIT_COMMITTER_DATE="' + modified + '"',
-      '& git commit',
-      '-F -',
-      '--author="' + author + '"',
-      '--date=' + modified,
-      '--allow-empty'].join(' '), {
-      maxBuffer: maxBuffer
-    }, next);
-  } else {
-    // commit these changes
-    echoAndExec(null, ['GIT_COMMITTER_EMAIL="' + email + '"',
-      'GIT_COMMITTER_NAME="' + name + '"',
-      'GIT_COMMITTER_DATE="' + modified + '"',
-      'git commit',
-      '-m "' + comment + '"',
-      '--author="' + author + '"',
-      '--date=' + modified,
-      '--allow-empty'].join(' '), {
-      maxBuffer: maxBuffer
-    }, next);
-  }
+  var env = process.env;
+  env["GIT_COMMITTER_EMAIL"] = email;
+  env["GIT_COMMITTER_NAME"] = name;
+  env["GIT_COMMITTER_DATE"] = modified;
+
+  // commit these changes
+  echoAndExec(comment, ['git commit',
+    '-F -',
+    '--author="' + author + '"',
+    '--date=' + modified,
+    '--allow-empty'].join(' '), {
+    maxBuffer: maxBuffer,
+    env: env
+  }, next);
 }
 
 
