@@ -49,7 +49,7 @@ function gitCommit(change, next) {
 
   if (isWindows) {
     // commit these changes
-    echoAndExec(['set GIT_COMMITTER_EMAIL="' + email + '"',
+    echoAndExec(null, ['set GIT_COMMITTER_EMAIL="' + email + '"',
       '& set GIT_COMMITTER_NAME="' + name + '"',
       '& set GIT_COMMITTER_DATE="' + modified + '"',
       '& git commit',
@@ -61,7 +61,7 @@ function gitCommit(change, next) {
     }, next);
   } else {
     // commit these changes
-    echoAndExec(['GIT_COMMITTER_EMAIL="' + email + '"',
+    echoAndExec(null, ['GIT_COMMITTER_EMAIL="' + email + '"',
       'GIT_COMMITTER_NAME="' + name + '"',
       'GIT_COMMITTER_DATE="' + modified + '"',
       'git commit',
@@ -81,7 +81,7 @@ function processHistoryItem(history, index) {
   var uuid = history[index].uuid;
 
   // list the changes for this UUID so we can get the full work item comment
-  echoAndExec(scm + ' list changes ' + uuid + userPass + ' -j', {
+  echoAndExec(null, scm + ' list changes ' + uuid + userPass + ' -j', {
       maxBuffer: maxBuffer
   }, function (err, stdout, stderr) {
     if (err) throw err;
@@ -91,14 +91,14 @@ function processHistoryItem(history, index) {
     var change = jazzResponse.changes[0];
 
     // accept changes from RTC
-    echoAndExec(scm + ' accept ' + uuid + userPass + ' --overwrite-uncommitted', {
+    echoAndExec(null, scm + ' accept ' + uuid + userPass + ' --overwrite-uncommitted', {
       maxBuffer: maxBuffer
     }, function (err, stdout, stderr) {
       if (err) throw err;
 
       console.log(stdout);
       // add all changes to git
-      echoAndExec('git add -A', {
+      echoAndExec(null, 'git add -A', {
         maxBuffer: maxBuffer
       }, function (err, stdout, stderr) {
         if (err) throw err;
@@ -147,7 +147,7 @@ function createCommitMessage(change) {
   6. Repeat from step 2.
  */
 function discardChanges(callback) {
-  echoAndExec(scm + ' show history -j -m 100 ' + componentOption + userPass, {
+  echoAndExec(null, scm + ' show history -j -m 100 ' + componentOption + userPass, {
     maxBuffer: maxBuffer
   }, function (err, stdout, stderr) {
     if (err) throw err;
@@ -168,7 +168,7 @@ function discardChanges(callback) {
       return change.uuid;
     });
 
-    echoAndExec(scm + ' discard ' + userPass + ' --overwrite-uncommitted ' + uuids.join(' '), {
+    echoAndExec(null, scm + ' discard ' + userPass + ' --overwrite-uncommitted ' + uuids.join(' '), {
       maxBuffer: maxBuffer
     }, function (err, stdout, stderr) {
       if (err) throw err;
@@ -182,10 +182,10 @@ function discardChanges(callback) {
 
 
 function makeFirstCommit() {
-  echoAndExec('git init', function (err) {
+  echoAndExec(null, 'git init', function (err) {
     if (err) throw err;
 
-    echoAndExec(scm + ' show history -j ' + componentOption + userPass, {
+    echoAndExec(null, scm + ' show history -j ' + componentOption + userPass, {
       maxBuffer: maxBuffer
     }, function (err, stdout, stderr) {
       if (err) throw err;
@@ -194,7 +194,7 @@ function makeFirstCommit() {
       var jazzResponse = JSON.parse(stdout);
       var change = jazzResponse.changes[0];
 
-      echoAndExec('git add -A', function (err, stdout, stderr) {
+      echoAndExec(null, 'git add -A', function (err, stdout, stderr) {
         if (err) throw err;
 
         gitCommit(change, function(err, stdout, stderr) {
@@ -208,7 +208,7 @@ function makeFirstCommit() {
 }
 
 function walkThroughHistory() {
-  echoAndExec(scm + ' show status -i in:cbC -j ' + userPass, {
+  echoAndExec(null, scm + ' show status -i in:cbC -j ' + userPass, {
       maxBuffer: maxBuffer
     }, function (err, stdout, stderr) {
       if (err) throw err;
@@ -228,7 +228,13 @@ function walkThroughHistory() {
   });
 }
 
-function echoAndExec(cmd, options, callback) {
+function echoAndExec(input, cmd, options, callback) {
   console.log(cmd);
-  return exec(cmd, options, callback);
+  var child = exec(cmd, options, callback);
+
+  if (input)
+    child.stdin.write(input);
+  child.stdin.end();
+
+  return child;
 }
