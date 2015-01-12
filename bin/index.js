@@ -87,6 +87,8 @@ function processHistoryItem(history, index) {
   var uuid = history[index].uuid;
 
   // accept changes from RTC
+  console.log("\n=======================================");
+  console.log("Processing change set " + (index+1) + " of " + history.length + " (" + (history.length - index - 1) + " left)");
   echoAndExec(null, scm + ' accept ' + uuid + userPass + ' --overwrite-uncommitted', {
     maxBuffer: maxBuffer
   }, function (err, stdout, stderr) {
