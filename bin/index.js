@@ -49,11 +49,11 @@ function gitCommit(change, next) {
 
   if (isWindows) {
     // commit these changes
-    echoAndExec(null, ['set GIT_COMMITTER_EMAIL="' + email + '"',
+    echoAndExec(comment, ['set GIT_COMMITTER_EMAIL="' + email + '"',
       '& set GIT_COMMITTER_NAME="' + name + '"',
       '& set GIT_COMMITTER_DATE="' + modified + '"',
       '& git commit',
-      '-m "' + comment + '"',
+      '-F -',
       '--author="' + author + '"',
       '--date=' + modified,
       '--allow-empty'].join(' '), {
@@ -132,8 +132,6 @@ function createCommitMessage(change) {
   } else {
     message = comment;
   }
-
-  message = message.replace(/\n/, '\\\n');
 
   return message;
 }
