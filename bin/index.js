@@ -40,51 +40,63 @@ function convertToEmail(name) {
   return [name.toLowerCase().split(/\s+/).join('.'), '@', defaultDomain].join('');
 }
 
-function gitAddAndCommit(uuid, next) {
-  // list the changes for this UUID so we can get the full work item comment
-  echoAndExec(null, scm + ' list changes ' + uuid + userPass + ' -j', {
-      maxBuffer: maxBuffer
+function gitAddAndCommit(change, next) {
+  var comment = createCommitMessage(change);
+  var name = (change.author || defaultAuthor);
+  var email = convertToEmail(name);
+  var author = name + ' <' + email + '>';
+  var modified = new Date(change.modified).toISOString();
+
+  echoAndExec(null, 'git add -A', {
+    maxBuffer: maxBuffer
   }, function (err, stdout, stderr) {
     if (err) throw err;
 
-    // console.log(stdout);
-    var jazzResponse = JSON.parse(stdout);
-    var change = jazzResponse.changes[0];
+    var env = process.env;
+    env["GIT_COMMITTER_EMAIL"] = email;
+    env["GIT_COMMITTER_NAME"] = name;
+    env["GIT_COMMITTER_DATE"] = modified;
 
-    var comment = createCommitMessage(change);
-    var name = (change.author || defaultAuthor);
-    var email = convertToEmail(name);
-    var author = name + ' <' + email + '>';
-    var modified = new Date(change.modified).toISOString();
+    // commit these changes
+    echoAndExec(comment, ['git commit',
+      '-F -',
+      '--author="' + author + '"',
+      '--date=' + modified,
+      '--allow-empty'].join(' '), {
+      maxBuffer: maxBuffer,
+      env: env
+    }, next);
+  });
+}
 
-    echoAndExec(null, 'git add -A', {
-      maxBuffer: maxBuffer
+
+function makeGitCommit(change, next) {
+  // If the last 3 characters of the comment are "..." then we don't have the full comemnt.
+  if (change.comment.substr(-3, 3) == "..." ||
+      change.workitems && change.workitems.length > 0 && change.workitems[0]['workitem-label'].substr(-3, 3) == "...") {
+    // List the changes for this UUID so we can get the full comment.
+    echoAndExec(null, scm + ' list changes ' + change.uuid + userPass + ' -j', {
+        maxBuffer: maxBuffer
     }, function (err, stdout, stderr) {
       if (err) throw err;
 
-      var env = process.env;
-      env["GIT_COMMITTER_EMAIL"] = email;
-      env["GIT_COMMITTER_NAME"] = name;
-      env["GIT_COMMITTER_DATE"] = modified;
+      // console.log(stdout);
+      var jazzResponse = JSON.parse(stdout);
+      var fullChange = jazzResponse.changes[0];
 
-      // commit these changes
-      echoAndExec(comment, ['git commit',
-        '-F -',
-        '--author="' + author + '"',
-        '--date=' + modified,
-        '--allow-empty'].join(' '), {
-        maxBuffer: maxBuffer,
-        env: env
-      }, next);
+      return gitAddAndCommit(fullChange, next);
     });
-  });
+  } else {
+    return gitAddAndCommit(change, next);
+  }
 }
 
 
 function processHistoryItem(history, index) {
   if (index >= history.length) return;
 
-  var uuid = history[index].uuid;
+  var change = history[index];
+  var uuid = change.uuid;
 
   // accept changes from RTC
   console.log("\n=======================================");
@@ -96,7 +108,7 @@ function processHistoryItem(history, index) {
 
     console.log(stdout);
 
-    gitAddAndCommit(uuid, function(err, stdout, stderr) {
+    makeGitCommit(change, function(err, stdout, stderr) {
       if (err) throw err;
 
       // process the next item
@@ -147,7 +159,7 @@ function discardChanges(callback) {
 
     // cannot discard the first change
     if (changes.length === 1) {
-      return callback(changes);
+      return callback(changes[0]);
     }
 
     // to be safe, we can discard all but the first changeset, which might be
@@ -169,11 +181,11 @@ function discardChanges(callback) {
 }
 
 
-function makeFirstCommit(changes) {
+function makeFirstCommit(change) {
   echoAndExec(null, 'git init', function(err) {
     if (err) throw err;
 
-    gitAddAndCommit(changes[0].uuid, function(err, stdout, stderr) {
+    makeGitCommit(change, function(err, stdout, stderr) {
       if (err) throw err;
 
       walkThroughHistory();
