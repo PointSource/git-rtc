@@ -4,20 +4,65 @@ This project migrates RTC repositories to git, keeping the history.
 
 # Install
 
-To run the program, you must have `lscm` on your PATH.  `lscm` can be found on Jazz.net: (https://jazz.net/downloads/rational-team-concert/releases/5.0.2?p=allDownloads).  Look in the "Plain .zip Files" section for "SCM Tools"
+## Jazz SCM tool
+To run the program, you must have `lscm` on your PATH.  `lscm` can be found on Jazz.net: https://jazz.net/downloads/rational-team-concert/releases/5.0?p=allDownloads.  Look in the "Plain .zip Files" section for "SCM Tools".
 
+* If you aren't using the IBM JVM, edit the scm.ini to remove the following 3 lines
+
+```
+-Xshareclasses:nonfatal
+-Xquickstart
+-Xdump:system:events=systhrow,filter=java/lang/OutOfMemoryError,request=exclusive+prepwalk
+
+```
+
+* Log into Jazzhub: ```lscm login -r https://hub.jazz.net/ccm01 -n local -u <userid> -P <password>```
+
+* Create a workspace: ```lscm create workspace -r local -s <stream> <workspace>```
+
+* Load 1 component from the workspace into the current directory: ```lscm load -r local -i <workspace> <component>```
+
+
+## Running the conversion tool
 Follow these steps to run the application.
 
     chmod +x bin/index.js
 
+On Windows,
+
+	git config --global core.autocrlf false
+
+Add a .gitignore to your directory:
+
+```
+node_modules
+bower_components
+/.jazz5
+/.metadata
+```
+
 And while in your RTC component's directory, run the following command:
 
-    RTC_USER=user RTC_PASSWORD=password AUTHOR="John Doe" DOMAIN="example.com" path/to/git-rtc/bin/index.js
+Mac:
 
-* RTC_USER is the user name you use to login to the repository
-* RTC_PASSWORD is the password for your RTC user
+    RTC_USER=user RTC_PASSWORD=password AUTHOR="John Doe" DOMAIN="example.com" COMPONENT=foo node path/to/git-rtc/bin/index.js
+
+Windows:
+
+```
+set RTC_USER=user
+set RTC_PASSWORD=password
+set AUTHOR="John Doe"
+set DOMAIN="example.com"
+set COMPONENT=foo
+node path/to/git-rtc/bin/index.js
+```
+
+* RTC_USER is the user name you use to login to the repository (optional)
+* RTC_PASSWORD is the password for your RTC user (optional)
 * AUTHOR is your name. RTC does not give back author information for a changeset when the author is the current user
 * DOMAIN is the default domain you wish to give your historic users in git
+* COMPONENT is the RTC component
 
 The application converts users into emails by transforming the name to lowercase and changing spaces to dots.
 It then appeands '@' and DOMAIN.
