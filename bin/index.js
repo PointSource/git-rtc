@@ -21,6 +21,8 @@ var defaultAuthor = process.env.AUTHOR;
 var defaultDomain = process.env.DOMAIN;
 var componentOption = process.env.COMPONENT ? "-C " + process.env.COMPONENT : "";
 
+var skipFirstAccept = false;
+
 if (!defaultAuthor || !defaultDomain) {
   console.log("You must set AUTHOR and DOMAIN environment variables");
 } else {
@@ -29,10 +31,14 @@ if (!defaultAuthor || !defaultDomain) {
     userPass = ' -u ' + user + ' -P ' + password + " ";
   }
 
-  if (process.argv[2] == "continue")
+  if (process.argv[2] == "continue") {
     walkThroughHistory();
-  else
+  } else if (process.argv[2] == "continue2") {
+    skipFirstAccept = true;
+    walkThroughHistory();
+  } else {
     discardChanges(makeFirstCommit);
+  }
 }
 
 function convertToEmail(name) {
@@ -96,25 +102,34 @@ function processHistoryItem(history, index) {
   if (index >= history.length) return;
 
   var change = history[index];
-  var uuid = change.uuid;
 
-  // accept changes from RTC
-  console.log("\n=======================================");
-  console.log("Processing change set " + (index+1) + " of " + history.length + " (" + (history.length - index - 1) + " left)");
-  echoAndExec(null, scm + ' accept ' + uuid + userPass + ' --overwrite-uncommitted', {
-    maxBuffer: maxBuffer
-  }, function (err, stdout, stderr) {
-    if (err) throw err;
-
-    console.log(stdout);
-
+  if (skipFirstAccept) {
+    skipFirstAccept = false;
     makeGitCommit(change, function(err, stdout, stderr) {
       if (err) throw err;
 
       // process the next item
       processHistoryItem(history, index + 1);
     });
-  });
+  } else {
+    // accept changes from RTC
+    console.log("\n=======================================");
+    console.log("Processing change set " + (index+1) + " of " + history.length + " (" + (history.length - index - 1) + " left)");
+    echoAndExec(null, scm + ' accept ' + change.uuid + userPass + ' --overwrite-uncommitted', {
+      maxBuffer: maxBuffer
+    }, function (err, stdout, stderr) {
+      if (err) throw err;
+
+      console.log(stdout);
+
+      makeGitCommit(change, function(err, stdout, stderr) {
+        if (err) throw err;
+
+        // process the next item
+        processHistoryItem(history, index + 1);
+      });
+    });
+  }
 }
 
 function createCommitMessage(change) {
@@ -193,7 +208,7 @@ function makeFirstCommit(change) {
   });
 }
 
-function walkThroughHistory() {
+function walkThroughHistory(uuid) {
   echoAndExec(null, scm + ' show status -i in:cbC -j ' + userPass, {
       maxBuffer: maxBuffer
     }, function (err, stdout, stderr) {
@@ -210,7 +225,21 @@ function walkThroughHistory() {
 
       orderedHistory = orderedHistory.concat(jazzResponse.workspaces[0].components[0]['incoming-changes'].reverse());
 
-      processHistoryItem(orderedHistory, 0);
+      if (skipFirstAccept) {
+        echoAndExec(null, scm + ' show history -j -m 1 ' + componentOption + userPass, {
+          maxBuffer: maxBuffer
+        }, function(err, stdout, stderr) {
+          if (err) throw err;
+
+          var jazzResponse = JSON.parse(stdout);
+          var changes = jazzResponse.changes;
+
+          orderedHistory = changes.concat(orderedHistory);
+          processHistoryItem(orderedHistory, 0);
+        });
+      } else {
+        processHistoryItem(orderedHistory, 0);
+      }
   });
 }
 
