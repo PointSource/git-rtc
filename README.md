@@ -52,8 +52,8 @@ Windows:
 ```
 set RTC_USER=user
 set RTC_PASSWORD=password
-set AUTHOR="John Doe"
-set DOMAIN="example.com"
+set AUTHOR=John Doe
+set DOMAIN=example.com
 set COMPONENT=foo
 node path/to/git-rtc/bin/index.js
 ```
