@@ -150,6 +150,9 @@ function createCommitMessage(change) {
     message = comment;
   }
 
+  if (message == "")
+    message = ".";
+
   return message;
 }
 
