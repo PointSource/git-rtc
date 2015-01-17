@@ -222,14 +222,22 @@ function walkThroughHistory(uuid) {
 
       // get the RTC change set history and reverse it to get it in
       // chronological order
-      var orderedHistory = jazzResponse.workspaces[0].components[0]['incoming-baselines'].reverse().reduce(function(history, baseline) {
-        return history.concat(baseline.changes.reverse());
-      }, []);
+      var orderedHistory;
 
-      orderedHistory = orderedHistory.concat(jazzResponse.workspaces[0].components[0]['incoming-changes'].reverse());
+      if (jazzResponse.workspaces[0].components[0]['incoming-baselines']) {
+        orderedHistory = jazzResponse.workspaces[0].components[0]['incoming-baselines'].reverse().reduce(function(history, baseline) {
+          return history.concat(baseline.changes.reverse());
+        }, []);
+      } else {
+        orderedHistory = [];
+      }
+
+      if (jazzResponse.workspaces[0].components[0]['incoming-changes'])
+        orderedHistory = orderedHistory.concat(jazzResponse.workspaces[0].components[0]['incoming-changes'].reverse());
 
       if (skipFirstAccept) {
         echoAndExec(null, scm + ' show history -j -m 1 ' + componentOption + userPass, {
+        // echoAndExec(null, scm + ' list changes _bZ3IMEjNEeSdltTkss2XRg -j ' + userPass, {
           maxBuffer: maxBuffer
         }, function(err, stdout, stderr) {
           if (err) throw err;
