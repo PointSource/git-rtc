@@ -158,7 +158,7 @@ module.exports = {
             }
         );
     },
-    syncAndCommit: function(env, component, change, callback, isFirstCommit){
+    syncAndCommit: function(env, component, change, callback){
 
         // Get mappings from env.config.mapping[component]
         var mapping = env.config.mapping[component];
@@ -169,8 +169,8 @@ module.exports = {
         // For key : value in the mappings listed:
         async.forEachOfSeries(mapping, function(sourceFolder, destinationFolder, callback){
             // Rsync from ./rtc-workspace/{component}/{sourceFolder} to ./{destinationFolder}
-            var sourcePath = path.resolve('rtc-workspace', component, sourceFolder),
-                destPath = path.resolve(destinationFolder);
+            var sourcePath = path.resolve('rtc-workspace', component, sourceFolder) + path.sep,
+                destPath = path.resolve(destinationFolder) + path.sep;
             if(fs.existsSync(sourcePath)){
                 // Build the command
                 var rsync = new Rsync()
@@ -198,14 +198,6 @@ module.exports = {
 
             // For each of the repositories listed in config.repositories:
             async.eachSeries(env.config.repositories, function(repository, callback){
-                // If this would be the first commit but this repo isn't part of this component, return.
-                if(
-                    isFirstCommit &&
-                    isFirstCommit.indexOf(repository) === -1
-                ){
-                    return callback();
-                }
-
                 // Check if there are changes (e.g. `git status` doesn't contain 'nothing to commit, working directory clean')
                 var repositoryPath = path.resolve(repository);
                 echoAndExec(null, 'git status', {
@@ -218,7 +210,7 @@ module.exports = {
                     }
 
                     // If this repo is clean, return
-                    if(!isFirstCommit && stdout.indexOf('working directory clean') !== -1){
+                    if(stdout.indexOf('nothing to commit') !== -1){
                         return callback();
                     }
 

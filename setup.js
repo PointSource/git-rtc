@@ -5,8 +5,7 @@ var winston = require('winston'),
     _ = require('underscore'),
     env = require('./env'),
     echoAndExec = require('./echoAndExec'),
-    parseJazzHistory = require('./parseJazzHistory'),
-    processComponents = require('./process');
+    parseJazzHistory = require('./parseJazzHistory');
 
 module.exports = {
     init: function(env, existingWorkspaceName){
@@ -94,31 +93,12 @@ module.exports = {
                     return callback();
                 }
                 async.forEachOfSeries(env.config.mapping, function(mappings, component, callback){
-                    var componentPath = path.resolve(rtcWorkspacePath, component);
                     rollbackRepo(env, workspaceName, component, function(err, lastChange){
                         if(err){ return callback(err); }
 
                         echoAndExec(null, [env.scm, 'load -r local -i', workspaceName, '"'+component+'"'], {
                             cwd: rtcWorkspacePath
-                        }, function(err, stdout, stderr){
-                            winston.info(stdout);
-
-
-                            var repos = [];
-                            _.each(mappings, function(value){
-                                var repo = value;
-                                if(repo.indexOf('/') !== -1){
-                                    repo = repo.split('/').shift();
-                                }
-                                if(repos.indexOf(repo) === -1){
-                                    repos.push(repo);
-                                }
-                            });
-                            if(repos.length === 0){
-                                repos = false;
-                            }
-                            processComponents.syncAndCommit(env, component, lastChange, callback, repos);
-                        });
+                        }, callback);
                     });
                 }, function(err){
                     if(err){
@@ -151,57 +131,10 @@ module.exports = {
     }
 };
 
-var parseBaselineList = function(stdout){
-        var jazzResponse = stdout.split('\n');
-        var changes = [];
-        var getUUID = /^  Baseline: \(([0-9]+)\) /m;
-        _.each(jazzResponse, function(row){
-            var match = getUUID.exec(row);
-            if(match){
-                changes.push(match[1]);
-            }
-        });
-        return changes;
-    },
-    count = 100,
+var count = 100,
     errorTolerance = 10,
     errs = 0,
     rollbackRepo = function(env, workspaceName, component, callback){
-        // echoAndExec(null, [env.scm, 'list baselines -m 1000 -r https://hub.jazz.net/ccm01 -C', '"'+component+'"', env.userPass], null, function(err, stdout, stderr) {
-        //     if (err) {
-        //         winston.error('error running list baselines [stderr]:', stderr);
-        //         winston.error('error running list baselines [stdout]:', stdout);
-        //         return callback(err);
-        //     }
-        //
-        //     var baselines = parseBaselineList(stdout);
-        //     if(baselines.length === 0){
-        //         return callback('error getting baselines!');
-        //     }
-        //     var lastBaseline = baselines[baselines.length-1];
-        //     echoAndExec(null, [env.scm, 'add component -r https://hub.jazz.net/ccm01 -s', '"'+env.stream+'"', '-b', lastBaseline, env.userPass, workspaceName, '"'+component+'"'], null, function(err, stdout, stderr){
-        //         if (err) {
-        //             winston.error('error running add component [stderr]:', stderr);
-        //             winston.error('error running add component [stdout]:', stdout);
-        //             return callback(err);
-        //         }
-        //
-        //         echoAndExec(null, [env.scm, 'show history -m 100 -r https://hub.jazz.net/ccm01 -C', '"'+component+'"', '-w', workspaceName, env.userPass], null, function(err, stdout, stderr) {
-        //             if (err) {
-        //                 winston.error('error running show history [stderr]:', stderr);
-        //                 winston.error('error running show history [stdout]:', stdout);
-        //                 return callback(err);
-        //             }
-        //
-        //             var changes = parseJazzHistory(stdout);
-        //             if(changes.length !== 1){
-        //                 winston.error('error getting change (should only be one?!)');
-        //                 return callback('error getting change (should only be one?!)');
-        //             }
-        //             return callback(null, changes[0]);
-        //         });
-        //     });
-        // });
 
         // If we last ran successfully, reset the count to 100.
         if(errs === 0){
