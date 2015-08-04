@@ -1,0 +1,24 @@
+{
+    "author": "Ben Schell",
+    "domain": "pointsource.com",
+    "stream": "a jazzhub stream name | might have special characters",
+    "repositories": [
+        "repository-a",
+        "repository-b",
+        "repository-c"
+    ],
+    "mapping": {
+        "component-a": {
+            "folder-a": "repository-a",
+            "folder-b": "repository-b/folder-b"
+        },
+        "component b might have a funky name | funky characters": {
+            "folder-c": "repository-b/folder-c"
+        },
+        "component-c": {
+            "folder-d": "repository-c/folder-d",
+            "folder-e": "repository-c/folder-e",
+            "folder-f": "repository-c/folder-f"
+        }
+    }
+}

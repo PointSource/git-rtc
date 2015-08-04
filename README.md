@@ -13,66 +13,64 @@ To run the program, you must have `lscm` on your PATH.  `lscm` can be found on J
 -Xshareclasses:nonfatal
 -Xquickstart
 -Xdump:system:events=systhrow,filter=java/lang/OutOfMemoryError,request=exclusive+prepwalk
-
 ```
 
-* Log into Jazzhub: ```lscm login -r https://hub.jazz.net/ccm01 -n local -u <userid> -P <password>```
+* Regardless of if you're using the IBM JVM, it's best to bump up the memory allowed for the scm commands. In scm.ini, look for the line like this: `-Xmx512m` and replace it with: `-Xmx2048m`
 
-* Create a workspace: ```lscm create workspace -r local -s <stream> <workspace>```
+* If your installation of lscm didn't come with an scm.ini (Mac zips don't seem to have one), one is available within this repository at `config/scm.ini`
 
-* Load 1 component from the workspace into the current directory: ```lscm load -r local -i <workspace> <component>```
+## Installation
 
+If you have access to the PointSource npm registry, it's as easy as: `npm install git-rtc`
 
-## Running the conversion tool
-Follow these steps to run the application.
+## Using the tool
 
-    chmod +x bin/index.js
+### Create a config file
 
-On Windows,
+Check out the sample config file in config.json and note it's structure:
+* "author" is the default author if none can be found for a given changeset (usually just the initial changeset)
+* "domain" is the default domain to use for crafting email addresses for git commits. The application converts users into emails by transforming the name to lowercase and changing spaces to dots. It then appeands '@' and this domain. Emails are needed for git history, but RTC does not have that information available.
+* "stream" is the stream the git repositories should be based on
+* "repositories" is an array of repository names. These are folders that will be created on disk, so use appropriate names.
+* "mapping" is an object with keys representing the components within the stream. The value for each key is an object mapping a source path (starting with the component folder within the workspace as a root folder) to a destination repository and path. See the sample for examples; this allows folders within a component to be split into separate repositories if desired.
 
-	git config --global core.autocrlf false
+### Setup
 
-Add a .gitignore to your directory:
+The tool requires a setup step which does the following:
+* Creates a remote workspace
+* Creates the local git repositories
+* For each component in `config.mapping`, rolls the history back to the initial baseline
+* Load the workspace locally
+* Based on the mappings, creates an initial commit for each local git repository.
 
-```
-node_modules
-bower_components
-/.jazz5
-/.metadata
-```
+Note that the local files will end up in the current working directory, so run this command from where you'd like the local workspace and repositories to be stored.
 
-And while in your RTC component's directory, run the following command:
+Example: `git-rtc -U "you@pointsource.com" -P "YourJazzHubPassword" --config ../path/to/config.json setup`
 
-Mac:
+#### Alternative setup
 
-    RTC_USER=user RTC_PASSWORD=password AUTHOR="John Doe" DOMAIN="example.com" COMPONENT=foo node path/to/git-rtc/bin/index.js
+If you've already got a workspace created (via Eclipse or from a previous run) that is in a state you'd like to use for creating repositories, you can specify that as part of the setup command. The steps for creating a workspace and rolling it back will be skipped.
 
-Windows:
+Example: `git-rtc -U "you@pointsource.com" -P "YourJazzHubPassword" --config ../path/to/config.json -w existing-workspace-name setup`
 
-```
-set RTC_USER=user
-set RTC_PASSWORD=password
-set AUTHOR=John Doe
-set DOMAIN=example.com
-set COMPONENT=foo
-node path/to/git-rtc/bin/index.js
-```
+### Processing
 
-* RTC_USER is the user name you use to login to the repository (optional)
-* RTC_PASSWORD is the password for your RTC user (optional)
-* AUTHOR is your name. RTC does not give back author information for a changeset when the author is the current user
-* DOMAIN is the default domain you wish to give your historic users in git
-* COMPONENT is the RTC component
+Once setup is complete, the tool can be re-run using the `process` command as many times as is needed to update the git repositories. The process step does these actions for **each component** listed in `config.mapping`:
+* Retrieve incoming changes for this workspace
+* For each changeset within:
+    * Accept the changeset into the workspace
+    * Using the mapping, synchronize the workspace files to the git repository folders.
+    * If `git status` indicates that there are changed files, add and commit them to the git repository using the information from the changeset
 
-The application converts users into emails by transforming the name to lowercase and changing spaces to dots.
-It then appeands '@' and DOMAIN.
-Emails are needed for git history, but RTC does not have that information available.
+Note that this procesing action can be re-run as many times as needed. It could, for example, be run on a schedule on a CI server in order to keep a set of git repositories synchronized with a workspace/stream.
+
+Example: `git-rtc -U "you@pointsource.com" -P "YourJazzHubPassword" --config ../path/to/config.json process`
 
 # License
 
 The MIT License (MIT)
 
-Copyright (c) 2014 Zachary Allyn Kuhn
+Copyright (c) 2014 Zachary Allyn Kuhn, Benjamin Schell
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
