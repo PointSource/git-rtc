@@ -9,15 +9,16 @@ program
     .option('-s, --stream <stream>', 'Which RTC Stream on which to base the workspace.')
     .option('-a, --author <author name>', 'Default author name (e.g. \'Ben Schell\')')
     .option('-d, --default_domain <domain>', 'Default domain for creating email addresses', 'pointsource.com')
-    .option('-w, --workspace <workspaceName>', 'Name of existing workspace to use instead of creating a new one.');
+    .option('--check-last-commit', 'Skip the first accept (so, make sure the last accept was processed fully)');
 
 program
     .command('setup')
     .description('Create the RTC workspace, load components found in the config, and roll them back to the initial state.')
+    .option('-w, --workspace <workspaceName>', 'Name of existing workspace to use instead of creating a new one.')
     .action(function(options){
         var env = getEnv(options.parent),
             setup = require('./setup');
-        setup.init(env, options.parent.workspace);
+        setup.init(env, options.workspace);
     });
 
 program
@@ -26,7 +27,7 @@ program
     .action(function(options){
         var env = getEnv(options.parent),
             processComponents = require('./process');
-        processComponents.init(env);
+        processComponents.init(env, options.parent.checkLastCommit);
     });
 
 module.exports = program.parse(process.argv);

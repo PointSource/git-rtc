@@ -8,7 +8,7 @@ var winston = require('winston'),
     Rsync = require('rsync');
 
 module.exports = {
-    init: function(env, onceOnly, callback){
+    init: function(env, checkLastCommit){
         winston.error('PROCESS');
         // Fail if rtc-workspace doesn't exist
         // For each of the components listed in config.mapping:
@@ -50,13 +50,18 @@ module.exports = {
 
         // For each of the components listed in config.mapping:
         async.forEachOfSeries(env.config.mapping, function(mapping, component, callback){
-            winston.info('[process] starting on:', component);
+            winston.info('[process] starting on:', component, checkLastCommit);
             var componentPath = path.resolve(rtcWorkspacePath, component);
 
             // Get upcoming changesets
             echoAndExec(null, [env.scm, ' show status -i in:cbC -j', env.userPass], {
                 cwd: componentPath
             }, function(err, stdout, stderr) {
+                if(err){
+                    winston.error('Error running scm show status [stderr]:', stderr);
+                    winston.error('Error running scm show status [stdout]:', stdout);
+                    return callback(err);
+                }
 
                 // winston.info(stdout);
                 var jazzResponse = JSON.parse(stdout);
@@ -78,45 +83,25 @@ module.exports = {
                         orderedHistory.concat(jazzResponse.workspaces[0].components[0]['incoming-changes'].reverse());
                 }
 
-                if(!orderedHistory || orderedHistory.length === 0){
-                    winston.info('no changesets to process');
-                    return callback();
-                }
-
-                // While we have a changeset
-                //      Run sync-and-commit
-                //      Move the current changeset forward one from the history
-                var numIterations = 100;
-                var count = 0;
-                async.whilst(
-                    function(){ // Check condition
-                        return orderedHistory.length > 0 && numIterations-- > 0;
-                    },
-                    function(callback){ // Loop
-                        var change = orderedHistory.shift();
-                        winston.info('=======================================');
-                        winston.info('Processing change set', (++count), '(', orderedHistory.length, 'left)');
-
-                        echoAndExec(null, [env.scm, 'accept', change.uuid, env.userPass, ' --overwrite-uncommitted'], {
-                            cwd: componentPath
-                        }, function (err, stdout, stderr) {
-                            if(err){
-                                winston.error('Error running lscm accept [stderr]:', stderr);
-                                winston.error('Error running lscm accept [stdout]:', stdout);
-                                return callback(err);
-                            }
-
-                            module.exports.syncAndCommit(env, component, change, callback);
-                        });
-                    },
-                    function(err){ // Finally
+                if (checkLastCommit) {
+                    echoAndExec(null, [env.scm, 'show history -j -m 1', env.userPass], {
+                        cwd: componentPath
+                    }, function(err, stdout, stderr) {
                         if(err){
-                            winston.error('error while processing changesets', err);
+                            winston.error('Error running scm show history [stderr]:', stderr);
+                            winston.error('Error running scm show history [stdout]:', stdout);
+                            return callback(err);
                         }
-                        winston.info('did finish processing changesets!');
-                        callback(err);
-                    }
-                );
+
+                        var jazzResponse = JSON.parse(stdout);
+                        var changes = jazzResponse.changes;
+
+                        orderedHistory = changes.concat(orderedHistory);
+                        module.exports.processHistory(env, component, componentPath, orderedHistory, callback, true);
+                    });
+                }else{
+                    module.exports.processHistory(env, component, componentPath, orderedHistory, callback);
+                }
             });
         }, function(err){
             // Done?
@@ -125,6 +110,53 @@ module.exports = {
             }
             winston.info('done processing components');
         });
+    },
+    processHistory: function(env, component, componentPath, orderedHistory, callback, skipAccept){
+
+        if(!orderedHistory || orderedHistory.length === 0){
+            winston.info('no changesets to process');
+            return callback();
+        }
+
+        // While we have a changeset
+        //      Run sync-and-commit
+        //      Move the current changeset forward one from the history
+        var count = 0,
+            doSkipAccept = skipAccept;
+        async.whilst(
+            function(){ // Check condition
+                return orderedHistory.length > 0;
+            },
+            function(callback){ // Loop
+                var change = orderedHistory.shift();
+                winston.info('=======================================');
+                winston.info('Processing change set', (++count), '(', orderedHistory.length, 'left)');
+
+                if(doSkipAccept){
+                    doSkipAccept = false;
+                    module.exports.syncAndCommit(env, component, change, callback);
+                }else{
+                    echoAndExec(null, [env.scm, 'accept', change.uuid, env.userPass, ' --overwrite-uncommitted'], {
+                        cwd: componentPath
+                    }, function (err, stdout, stderr) {
+                        if(err){
+                            winston.error('Error running lscm accept [stderr]:', stderr);
+                            winston.error('Error running lscm accept [stdout]:', stdout);
+                            return callback(err);
+                        }
+
+                        module.exports.syncAndCommit(env, component, change, callback);
+                    });
+                }
+            },
+            function(err){ // Finally
+                if(err){
+                    winston.error('error while processing changesets', err);
+                }
+                winston.info('did finish processing changesets!');
+                callback(err);
+            }
+        );
     },
     syncAndCommit: function(env, component, change, callback, isFirstCommit){
 
