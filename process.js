@@ -7,6 +7,9 @@ var winston = require('winston'),
     echoAndExec = require('./echoAndExec'),
     Rsync = require('rsync');
 
+var workspaceName,
+    rtcWorkspacePath;
+
 module.exports = {
     init: function(env, checkLastCommit){
         winston.error('PROCESS');
@@ -30,7 +33,7 @@ module.exports = {
             winston.error('`rtc-workspace` doesn\'t exist; Please run setup');
             process.exit(1);
         }
-        var rtcWorkspacePath = path.resolve('rtc-workspace');
+        rtcWorkspacePath = path.resolve('rtc-workspace');
         // For each of the components listed in config.mapping:
         //      Fail if a folder for the component doesn't exist in rtc-workspace
         _.each(env.config.mapping, function(mapping, component){
@@ -70,6 +73,8 @@ module.exports = {
                 // chronological order
                 var orderedHistory;
 
+                workspaceName = jazzResponse.workspaces[0].name;
+
                 if (jazzResponse.workspaces[0].components[0]['incoming-baselines']) {
                     orderedHistory = jazzResponse.workspaces[0].components[0]['incoming-baselines'].reverse().reduce(function(history, baseline) {
                         return history.concat(baseline.changes.reverse());
@@ -107,6 +112,7 @@ module.exports = {
             // Done?
             if(err){
                 winston.error('error while iterating over components', err);
+                throw err;
             }
             winston.info('done processing components');
         });
@@ -139,12 +145,48 @@ module.exports = {
                     echoAndExec(null, [env.scm, 'accept', change.uuid, env.userPass, ' --overwrite-uncommitted'], {
                         cwd: componentPath
                     }, function (err, stdout, stderr) {
+                        if(err && stdout.indexOf('Following workspaces still have conflicts after accept') !== -1){
+                            // There was a conflict (?!) after that last accept
+                            // Let's discard any local changes
+                            // Unload the component:
+                            //  (in rtcWorkspacePath) scm unload -i -C <componentName>
+                            // Load the component:
+                            //  (in rtcWorkspacePath) scm load -r <repoURL> <workspaceName> <componentName>
+                            // Then syncAndCommit
+
+                            echoAndExec(null, [env.scm, 'unload -i -C', '"'+component+'"', env.userPass], {
+                                cwd: rtcWorkspacePath
+                            }, function(err, stdout, stderr){
+                                if(err){
+                                    winston.error('Error running lscm unload [stderr]:', stderr);
+                                    winston.error('Error running lscm unload [stdout]:', stdout);
+                                    return callback(err);
+                                }
+
+                                echoAndExec(null, [env.scm, 'load -r https://hub.jazz.net/ccm01', workspaceName, '"'+component+'"', env.userPass], {
+                                    cwd: rtcWorkspacePath
+                                }, function(err, stdout, stderr){
+                                    if(err){
+                                        winston.error('Error running lscm load [stderr]:', stderr);
+                                        winston.error('Error running lscm load [stdout]:', stdout);
+                                        return callback(err);
+                                    }
+
+                                    // OK, now we can syncAndCommit
+                                    module.exports.syncAndCommit(env, component, change, callback);
+                                });
+                            });
+                            return;
+                        }
+
+                        // If we had some other kind of error, no clue!
                         if(err){
                             winston.error('Error running lscm accept [stderr]:', stderr);
                             winston.error('Error running lscm accept [stdout]:', stdout);
                             return callback(err);
                         }
 
+                        // All clear, so syncAndCommit
                         module.exports.syncAndCommit(env, component, change, callback);
                     });
                 }
@@ -319,6 +361,7 @@ function createCommitMessage(change) {
 
 function convertToEmail(name, defaultDomain) {
     // convert the name from "John Doe" to "john.doe@domain"
+    name = name || '';
     return [
         name.toLowerCase().split(/\s+/).join('.'),
         '@',
