@@ -27,7 +27,7 @@ If you have access to the PointSource npm registry, it's as easy as: `npm instal
 
 ### Create a config file
 
-Check out the sample config file in config.json and note it's structure:
+Check out the sample config file in `config/config.json` and note it's structure:
 * "author" is the default author if none can be found for a given changeset (usually just the initial changeset)
 * "domain" is the default domain to use for crafting email addresses for git commits. The application converts users into emails by transforming the name to lowercase and changing spaces to dots. It then appeands '@' and this domain. Emails are needed for git history, but RTC does not have that information available.
 * "stream" is the stream the git repositories should be based on
