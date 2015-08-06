@@ -238,25 +238,25 @@ module.exports = {
                 return callback(err);
             }
 
-            // For each of the repositories listed in config.repositories:
-            async.eachSeries(env.config.repositories, function(repository, callback){
-                // Check if there are changes (e.g. `git status` doesn't contain 'nothing to commit, working directory clean')
-                var repositoryPath = path.resolve(repository);
-                echoAndExec(null, 'git status', {
-                    cwd: repositoryPath
-                }, function(err, stdout, stderr){
-                    if(err){
-                        winston.error('Error running git status [stderr]:', stderr);
-                        winston.error('Error running git status [stdout]:', stdout);
-                        return callback(err);
-                    }
+            var gitAddAndCommit = function(change){
+                // For each of the repositories listed in config.repositories:
+                async.eachSeries(env.config.repositories, function(repository, callback){
+                    // Check if there are changes (e.g. `git status` doesn't contain 'nothing to commit, working directory clean')
+                    var repositoryPath = path.resolve(repository);
+                    echoAndExec(null, 'git status', {
+                        cwd: repositoryPath
+                    }, function(err, stdout, stderr){
+                        if(err){
+                            winston.error('Error running git status [stderr]:', stderr);
+                            winston.error('Error running git status [stdout]:', stdout);
+                            return callback(err);
+                        }
 
-                    // If this repo is clean, return
-                    if(stdout.indexOf('nothing to commit') !== -1){
-                        return callback();
-                    }
+                        // If this repo is clean, return
+                        if(stdout.indexOf('nothing to commit') !== -1){
+                            return callback();
+                        }
 
-                    var gitAddAndCommit = function(change){
                         // Do a `git add -A` and `git commit` using message from changeset
                         echoAndExec(null, 'git add -A', {
                             cwd: repositoryPath
@@ -299,32 +299,32 @@ module.exports = {
                                 return callback(err);
                             });
                         });
-                    };
+                    });
+                }, callback);
+            };
 
-                    // If the last 3 characters of the comment are "..." then we don't have the full comemnt.
-                    if (
-                        change.comment.substr(-3, 3) === '...' ||
-                        (
-                            change.workitems &&
-                            change.workitems.length > 0 &&
-                            change.workitems[0]['workitem-label'].substr(-3, 3) === '...'
-                        )
-                    ) {
-                        // List the changes for this UUID so we can get the full comment.
-                        echoAndExec(null, [env.scm, 'list changes -j', change.uuid, env.userPass], null, function (err, stdout, stderr) {
-                            if (err) throw err;
+            // If the last 3 characters of the comment are "..." then we don't have the full comemnt.
+            if (
+                change.comment.substr(-3, 3) === '...' ||
+                (
+                    change.workitems &&
+                    change.workitems.length > 0 &&
+                    change.workitems[0]['workitem-label'].substr(-3, 3) === '...'
+                )
+            ) {
+                // List the changes for this UUID so we can get the full comment.
+                echoAndExec(null, [env.scm, 'list changes -j', change.uuid, env.userPass], null, function (err, stdout, stderr) {
+                    if (err) throw err;
 
-                            // winston.info(stdout);
-                            var jazzResponse = JSON.parse(stdout);
-                            var fullChange = jazzResponse.changes[0];
+                    // winston.info(stdout);
+                    var jazzResponse = JSON.parse(stdout);
+                    var fullChange = jazzResponse.changes[0];
 
-                            gitAddAndCommit(fullChange);
-                        });
-                    } else {
-                        gitAddAndCommit(change);
-                    }
+                    gitAddAndCommit(fullChange);
                 });
-            }, callback);
+            } else {
+                gitAddAndCommit(change);
+            }
         });
     }
 };
