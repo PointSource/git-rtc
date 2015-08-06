@@ -209,7 +209,7 @@ module.exports = {
         }
 
         // For key : value in the mappings listed:
-        async.forEachOfSeries(mapping, function(sourceFolder, destinationFolder, callback){
+        async.forEachOfSeries(mapping, function(destinationFolder, sourceFolder, callback){
             // Rsync from ./rtc-workspace/{component}/{sourceFolder} to ./{destinationFolder}
             var sourcePath = path.resolve('rtc-workspace', component, sourceFolder) + path.sep,
                 destPath = path.resolve(destinationFolder) + path.sep;
