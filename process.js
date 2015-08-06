@@ -154,7 +154,7 @@ module.exports = {
                             //  (in rtcWorkspacePath) scm load -r <repoURL> <workspaceName> <componentName>
                             // Then syncAndCommit
 
-                            echoAndExec(null, [env.scm, 'unload -i -C', '"'+component+'"', env.userPass], {
+                            echoAndExec(null, [env.scm, 'unload -i -D -C', '"'+component+'"', env.userPass], {
                                 cwd: rtcWorkspacePath
                             }, function(err, stdout, stderr){
                                 if(err){
@@ -163,7 +163,7 @@ module.exports = {
                                     return callback(err);
                                 }
 
-                                echoAndExec(null, [env.scm, 'load -r https://hub.jazz.net/ccm01', workspaceName, '"'+component+'"', env.userPass], {
+                                echoAndExec(null, [env.scm, 'load -r https://hub.jazz.net/ccm01 -i -f', workspaceName, '"'+component+'"', env.userPass], {
                                     cwd: rtcWorkspacePath
                                 }, function(err, stdout, stderr){
                                     if(err){
