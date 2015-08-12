@@ -322,6 +322,7 @@ module.exports = {
             if(fs.existsSync(sourcePath)){
                 // Build the command
                 var rsync = new Rsync()
+                    .set('delete')
                     .flags('az')
                     .source(sourcePath)
                     .destination(destPath);
