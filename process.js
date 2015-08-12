@@ -57,7 +57,7 @@ module.exports = {
             var componentPath = path.resolve(rtcWorkspacePath, component);
 
             // Get upcoming changesets
-            echoAndExec(null, [env.scm, ' show status -i in:cbC -j', env.userPass], {
+            echoAndExec(null, [env.scm, ' show status -i in:b -j'], {
                 cwd: componentPath
             }, function(err, stdout, stderr) {
                 if(err){
@@ -71,42 +71,64 @@ module.exports = {
 
                 // get the RTC change set history and reverse it to get it in
                 // chronological order
-                var orderedHistory;
+                var baselineHistory;
 
                 workspaceName = jazzResponse.workspaces[0].name;
 
                 if (jazzResponse.workspaces[0].components[0]['incoming-baselines']) {
-                    orderedHistory = jazzResponse.workspaces[0].components[0]['incoming-baselines'].reverse().reduce(function(history, baseline) {
-                        return history.concat(baseline.changes.reverse());
-                    }, []);
+                    baselineHistory = jazzResponse.workspaces[0].components[0]['incoming-baselines'].reverse();
                 } else {
-                    orderedHistory = [];
+                    baselineHistory = [];
                 }
 
-                if (jazzResponse.workspaces[0].components[0]['incoming-changes']){
-                    orderedHistory =
-                        orderedHistory.concat(jazzResponse.workspaces[0].components[0]['incoming-changes'].reverse());
-                }
-
-                if (checkLastCommit) {
-                    echoAndExec(null, [env.scm, 'show history -j -m 1', env.userPass], {
+                module.exports.processBaselineHistory(env, component, componentPath, baselineHistory, function(err){
+                    if(err){
+                        winston.error('Error running processBaselineHistory:', err);
+                        return callback(err);
+                    }
+                    // Get upcoming changesets
+                    echoAndExec(null, [env.scm, ' show status -i in:c -j'], {
                         cwd: componentPath
                     }, function(err, stdout, stderr) {
                         if(err){
-                            winston.error('Error running scm show history [stderr]:', stderr);
-                            winston.error('Error running scm show history [stdout]:', stdout);
+                            winston.error('Error running scm show status [stderr]:', stderr);
+                            winston.error('Error running scm show status [stdout]:', stdout);
                             return callback(err);
                         }
 
+                        // winston.info(stdout);
                         var jazzResponse = JSON.parse(stdout);
-                        var changes = jazzResponse.changes;
 
-                        orderedHistory = changes.concat(orderedHistory);
-                        module.exports.processHistory(env, component, componentPath, orderedHistory, callback, true);
+                        // get the RTC change set history and reverse it to get it in
+                        // chronological order
+                        var orderedHistory = [];
+
+                        if (jazzResponse.workspaces[0].components[0]['incoming-changes']){
+                            orderedHistory =
+                                orderedHistory.concat(jazzResponse.workspaces[0].components[0]['incoming-changes'].reverse());
+                        }
+
+                        if (checkLastCommit) {
+                            echoAndExec(null, [env.scm, 'show history -j -m 1'], {
+                                cwd: componentPath
+                            }, function(err, stdout, stderr) {
+                                if(err){
+                                    winston.error('Error running scm show history [stderr]:', stderr);
+                                    winston.error('Error running scm show history [stdout]:', stdout);
+                                    return callback(err);
+                                }
+
+                                var jazzResponse = JSON.parse(stdout);
+                                var changes = jazzResponse.changes;
+
+                                orderedHistory = changes.concat(orderedHistory);
+                                module.exports.processChangesetHistory(env, component, componentPath, orderedHistory, callback, true);
+                            });
+                        }else{
+                            module.exports.processChangesetHistory(env, component, componentPath, orderedHistory, callback);
+                        }
                     });
-                }else{
-                    module.exports.processHistory(env, component, componentPath, orderedHistory, callback);
-                }
+                });
             });
         }, function(err){
             // Done?
@@ -117,7 +139,91 @@ module.exports = {
             winston.info('done processing components');
         });
     },
-    processHistory: function(env, component, componentPath, orderedHistory, callback, skipAccept){
+    processBaselineHistory: function(env, component, componentPath, baselineHistory, callback, skipAccept){
+
+        if(!baselineHistory || baselineHistory.length === 0){
+            winston.info('no baseline to process');
+            return callback();
+        }
+
+        // While we have a baseline,
+        //      Accept the baseline
+        //      Run sync-and-commit
+        var count = 0;
+        async.whilst(
+            function(){ // Check condition
+                return baselineHistory.length > 0;
+            },
+            function(callback){ // Loop
+                var change = baselineHistory.shift();
+                winston.info('=======================================');
+                winston.info('Processing baseline', (++count), '(', baselineHistory.length, 'left)');
+
+                // Decorate the change with appropriate info
+                // author, comment, modified, uuid
+                change.comment = change.name;
+                var lastChangeSet = change.changes ? change.changes.shift() : {};
+                change.author = lastChangeSet.author;
+                change.modified = lastChangeSet.modified;
+
+                echoAndExec(null, [env.scm, 'accept -b', change.uuid, ' --overwrite-uncommitted'], {
+                    cwd: componentPath
+                }, function (err, stdout, stderr) {
+                    if(err && stdout.indexOf('Following workspaces still have conflicts after accept') !== -1){
+                        // There was a conflict (?!) after that last accept
+                        // Let's discard any local changes
+                        // Unload the component:
+                        //  (in rtcWorkspacePath) scm unload -i -C <componentName>
+                        // Load the component:
+                        //  (in rtcWorkspacePath) scm load -r <repoURL> <workspaceName> <componentName>
+                        // Then syncAndCommit
+
+                        echoAndExec(null, [env.scm, 'unload -i -D -C', '"'+component+'"'], {
+                            cwd: rtcWorkspacePath
+                        }, function(err, stdout, stderr){
+                            if(err){
+                                winston.error('Error running lscm unload [stderr]:', stderr);
+                                winston.error('Error running lscm unload [stdout]:', stdout);
+                                return callback(err);
+                            }
+
+                            echoAndExec(null, [env.scm, 'load -r https://hub.jazz.net/ccm01 -i -f', workspaceName, '"'+component+'"'], {
+                                cwd: rtcWorkspacePath
+                            }, function(err, stdout, stderr){
+                                if(err){
+                                    winston.error('Error running lscm load [stderr]:', stderr);
+                                    winston.error('Error running lscm load [stdout]:', stdout);
+                                    return callback(err);
+                                }
+
+                                // OK, now we can syncAndCommit
+                                module.exports.syncAndCommit(env, component, change, callback);
+                            });
+                        });
+                        return;
+                    }
+
+                    // If we had some other kind of error, no clue!
+                    if(err){
+                        winston.error('Error running lscm accept [stderr]:', stderr);
+                        winston.error('Error running lscm accept [stdout]:', stdout);
+                        return callback(err);
+                    }
+
+                    // All clear, so syncAndCommit
+                    module.exports.syncAndCommit(env, component, change, callback);
+                });
+            },
+            function(err){ // Finally
+                if(err){
+                    winston.error('error while processing baselines', err);
+                }
+                winston.info('did finish processing baselines!');
+                callback(err);
+            }
+        );
+    },
+    processChangesetHistory: function(env, component, componentPath, orderedHistory, callback, skipAccept){
 
         if(!orderedHistory || orderedHistory.length === 0){
             winston.info('no changesets to process');
@@ -136,13 +242,13 @@ module.exports = {
             function(callback){ // Loop
                 var change = orderedHistory.shift();
                 winston.info('=======================================');
-                winston.info('Processing change set', (++count), '(', orderedHistory.length, 'left)');
+                winston.info('Processing changeset', (++count), '(', orderedHistory.length, 'left)');
 
                 if(doSkipAccept){
                     doSkipAccept = false;
                     module.exports.syncAndCommit(env, component, change, callback);
                 }else{
-                    echoAndExec(null, [env.scm, 'accept', change.uuid, env.userPass, ' --overwrite-uncommitted'], {
+                    echoAndExec(null, [env.scm, 'accept -c', change.uuid, ' --overwrite-uncommitted'], {
                         cwd: componentPath
                     }, function (err, stdout, stderr) {
                         if(err && stdout.indexOf('Following workspaces still have conflicts after accept') !== -1){
@@ -154,7 +260,7 @@ module.exports = {
                             //  (in rtcWorkspacePath) scm load -r <repoURL> <workspaceName> <componentName>
                             // Then syncAndCommit
 
-                            echoAndExec(null, [env.scm, 'unload -i -D -C', '"'+component+'"', env.userPass], {
+                            echoAndExec(null, [env.scm, 'unload -i -D -C', '"'+component+'"'], {
                                 cwd: rtcWorkspacePath
                             }, function(err, stdout, stderr){
                                 if(err){
@@ -163,7 +269,7 @@ module.exports = {
                                     return callback(err);
                                 }
 
-                                echoAndExec(null, [env.scm, 'load -r https://hub.jazz.net/ccm01 -i -f', workspaceName, '"'+component+'"', env.userPass], {
+                                echoAndExec(null, [env.scm, 'load -r https://hub.jazz.net/ccm01 -i -f', workspaceName, '"'+component+'"'], {
                                     cwd: rtcWorkspacePath
                                 }, function(err, stdout, stderr){
                                     if(err){
@@ -313,7 +419,7 @@ module.exports = {
                 )
             ) {
                 // List the changes for this UUID so we can get the full comment.
-                echoAndExec(null, [env.scm, 'list changes -j', change.uuid, env.userPass], null, function (err, stdout, stderr) {
+                echoAndExec(null, [env.scm, 'list changes -j', change.uuid], null, function (err, stdout, stderr) {
                     if (err) throw err;
 
                     // winston.info(stdout);
