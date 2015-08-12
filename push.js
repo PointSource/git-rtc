@@ -18,15 +18,15 @@ module.exports = {
         //      Run `git push` to push the repository
         async.eachSeries(env.config.repositories, function(repository, callback){
             var repoPath = path.resolve(repository);
-            fs.mkdir(repoPath, function(err){
-                if(err){ return callback(err); }
+            if(!fs.existsSync(repoPath)){
+                return callback();
+            }
 
-                echoAndExec(null, ['git', 'push'], {
-                    cwd: repoPath
-                }, function(err, stdout, stderr){
-                    winston.info(stdout);
-                    callback(err);
-                });
+            echoAndExec(null, ['git', 'push'], {
+                cwd: repoPath
+            }, function(err, stdout, stderr){
+                winston.info(stdout);
+                callback(err);
             });
         }, function(err){
             winston.info('did finish push?', err);

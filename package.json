@@ -1,6 +1,6 @@
 {
   "name": "git-rtc",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "A RTC to git migration tool",
   "bin": {
     "git-rtc": "index.js"
