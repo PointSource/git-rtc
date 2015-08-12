@@ -30,4 +30,13 @@ program
         processComponents.init(env, options.parent.checkLastCommit);
     });
 
+program
+    .command('push')
+    .description('For each repository, do a `git push`.')
+    .action(function(options){
+        var env = getEnv(options.parent),
+            push = require('./push');
+        push.init(env);
+    });
+
 module.exports = program.parse(process.argv);
