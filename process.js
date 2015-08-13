@@ -323,6 +323,7 @@ module.exports = {
                 // Build the command
                 var rsync = new Rsync()
                     .set('delete')
+                    .set('exclude', '.git')
                     .flags('az')
                     .source(sourcePath)
                     .destination(destPath);
