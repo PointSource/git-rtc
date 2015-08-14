@@ -22,7 +22,7 @@ module.exports = {
                 return callback();
             }
 
-            echoAndExec(null, ['git', 'push'], {
+            echoAndExec(null, ['git', 'push', 'origin', 'master:develop'], {
                 cwd: repoPath
             }, function(err, stdout, stderr){
                 winston.info(stdout);
