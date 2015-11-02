@@ -45,7 +45,7 @@ module.exports = {
             },
             // Ensure the user is logged into RTC
             function(callback){
-                echoAndExec(null, [env.scm, 'login -r https://hub.jazz.net/ccm01 -n local', env.userPass], {
+                echoAndExec(null, [env.scm, 'login -r', env.host, '-n local', env.userPass], {
                     cwd: rtcWorkspacePath
                 }, function(err, stdout, stderr){
                     winston.info(stdout);
@@ -58,7 +58,7 @@ module.exports = {
                     // An existing workspace already exists, so we're skipping this!
                     return callback();
                 }
-                echoAndExec(null, [env.scm, 'create workspace -r https://hub.jazz.net/ccm01 -s', '"'+env.stream+'"', workspaceName, env.userPass], {
+                echoAndExec(null, [env.scm, 'create workspace -r', env.host, '-s', '"'+env.stream+'"', workspaceName, env.userPass], {
                     cwd: rtcWorkspacePath
                 }, function(err, stdout, stderr){
                     winston.info(stdout);
@@ -141,7 +141,7 @@ var count = 100,
             count = 100;
         }
 
-        echoAndExec(null, [env.scm, 'show history -m', count, ' -r https://hub.jazz.net/ccm01 -C', '"'+component+'"', '-w', workspaceName, env.userPass], null, function(err, stdout, stderr) {
+        echoAndExec(null, [env.scm, 'show history -m', count, ' -r', env.host, '-C', '"'+component+'"', '-w', workspaceName, env.userPass], null, function(err, stdout, stderr) {
             if (err) {
                 winston.error('error running show history [stderr]:', stderr);
                 winston.error('error running show history [stdout]:', stdout);
@@ -161,7 +161,7 @@ var count = 100,
                 return change.uuid;
             });
 
-            echoAndExec(null, [env.scm, 'suspend -r https://hub.jazz.net/ccm01 -w', workspaceName, env.userPass, '--overwrite-uncommitted', uuids.join(' ')], null, function(err, stdout, stderr) {
+            echoAndExec(null, [env.scm, 'suspend -r', env.host, '-w', workspaceName, env.userPass, '--overwrite-uncommitted', uuids.join(' ')], null, function(err, stdout, stderr) {
                 if (err) {
                     // Sometimes there are issues suspending changesets due to possible merge situations.
                     // This attempts to handle that by backing off how many changesets we process at a time,

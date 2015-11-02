@@ -187,7 +187,7 @@ module.exports = {
                                 return callback(err);
                             }
 
-                            echoAndExec(null, [env.scm, 'load -r https://hub.jazz.net/ccm01 -i -f', workspaceName, '"'+component+'"'], {
+                            echoAndExec(null, [env.scm, 'load -r', env.host, '-i -f', workspaceName, '"'+component+'"'], {
                                 cwd: rtcWorkspacePath
                             }, function(err, stdout, stderr){
                                 if(err){
@@ -269,7 +269,7 @@ module.exports = {
                                     return callback(err);
                                 }
 
-                                echoAndExec(null, [env.scm, 'load -r https://hub.jazz.net/ccm01 -i -f', workspaceName, '"'+component+'"'], {
+                                echoAndExec(null, [env.scm, 'load -r', env.host, '-i -f', workspaceName, '"'+component+'"'], {
                                     cwd: rtcWorkspacePath
                                 }, function(err, stdout, stderr){
                                     if(err){

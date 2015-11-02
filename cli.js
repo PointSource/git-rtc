@@ -6,6 +6,7 @@ program
     .option('-c, --config <path>', 'Path to JSON config file (e.g. \'config.json\')', 'config.json')
     .option('-U, --user <username>', 'Username for RTC (e.g. \'ben.schell@pointsource.com\')')
     .option('-P, --password <password>', 'Password for RTC (e.g. \'myPassword\')')
+    .option('-h, --host <host>', 'The JazzHub host provided in the JazzHub Client Configuration. (defaults to https://hub.jazz.net/ccm01)', 'https://hub.jazz.net/ccm01')
     .option('-s, --stream <stream>', 'Which RTC Stream on which to base the workspace.')
     .option('-a, --author <author name>', 'Default author name (e.g. \'Ben Schell\')')
     .option('-d, --default_domain <domain>', 'Default domain for creating email addresses', 'pointsource.com')

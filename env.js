@@ -64,6 +64,7 @@ module.exports = function(cli){
         stream: cli.stream || config.stream,
         author: cli.author || config.author,
         domain: cli.default_domain || config.domain,
+        host: cli.host,
         config: config,
         scm: scm
     };
