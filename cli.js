@@ -25,10 +25,11 @@ program
 program
     .command('process')
     .description('Process all available changesets: Accept a changeset into the RTC workspace, syncronize files into the repository folders, create git commits, repeat.')
+    .option('--only-do-changesets', 'Only process changesets (do not start with baselines).')
     .action(function(options){
         var env = getEnv(options.parent),
             processComponents = require('./process');
-        processComponents.init(env, options.parent.checkLastCommit);
+        processComponents.init(env, options.parent.checkLastCommit, options.onlyDoChangesets);
     });
 
 program

@@ -11,7 +11,7 @@ var workspaceName,
     rtcWorkspacePath;
 
 module.exports = {
-    init: function(env, checkLastCommit){
+    init: function(env, checkLastCommit, onlyDoChangesets){
         winston.error('PROCESS');
         // Fail if rtc-workspace doesn't exist
         // For each of the components listed in config.mapping:
@@ -56,80 +56,89 @@ module.exports = {
             winston.info('[process] starting on:', component, checkLastCommit);
             var componentPath = path.resolve(rtcWorkspacePath, component);
 
-            // Get upcoming changesets
-            echoAndExec(null, [env.scm, ' show status -i in:b -j'], {
-                cwd: componentPath
-            }, function(err, stdout, stderr) {
-                if(err){
-                    winston.error('Error running scm show status [stderr]:', stderr);
-                    winston.error('Error running scm show status [stdout]:', stdout);
-                    return callback(err);
-                }
-
-                // winston.info(stdout);
-                var jazzResponse = JSON.parse(stdout);
-
-                // get the RTC change set history and reverse it to get it in
-                // chronological order
-                var baselineHistory;
-
-                workspaceName = jazzResponse.workspaces[0].name;
-
-                if (jazzResponse.workspaces[0].components[0]['incoming-baselines']) {
-                    baselineHistory = jazzResponse.workspaces[0].components[0]['incoming-baselines'].reverse();
-                } else {
-                    baselineHistory = [];
-                }
-
-                module.exports.processBaselineHistory(env, component, componentPath, baselineHistory, function(err){
+            var doChangesets = function(){
+                // Get upcoming changesets
+                echoAndExec(null, [env.scm, ' show status -i in:c -j'], {
+                    cwd: componentPath
+                }, function(err, stdout, stderr) {
                     if(err){
-                        winston.error('Error running processBaselineHistory:', err);
+                        winston.error('Error running scm show status [stderr]:', stderr);
+                        winston.error('Error running scm show status [stdout]:', stdout);
                         return callback(err);
                     }
-                    // Get upcoming changesets
-                    echoAndExec(null, [env.scm, ' show status -i in:c -j'], {
-                        cwd: componentPath
-                    }, function(err, stdout, stderr) {
+
+                    // winston.info(stdout);
+                    var jazzResponse = JSON.parse(stdout);
+
+                    // get the RTC change set history and reverse it to get it in
+                    // chronological order
+                    var orderedHistory = [];
+
+                    if (jazzResponse.workspaces[0].components[0]['incoming-changes']){
+                        orderedHistory =
+                            orderedHistory.concat(jazzResponse.workspaces[0].components[0]['incoming-changes'].reverse());
+                    }
+
+                    if (checkLastCommit) {
+                        echoAndExec(null, [env.scm, 'show history -j -m 1'], {
+                            cwd: componentPath
+                        }, function(err, stdout, stderr) {
+                            if(err){
+                                winston.error('Error running scm show history [stderr]:', stderr);
+                                winston.error('Error running scm show history [stdout]:', stdout);
+                                return callback(err);
+                            }
+
+                            var jazzResponse = JSON.parse(stdout);
+                            var changes = jazzResponse.changes;
+
+                            orderedHistory = changes.concat(orderedHistory);
+                            module.exports.processChangesetHistory(env, component, componentPath, orderedHistory, callback, true);
+                        });
+                    }else{
+                        module.exports.processChangesetHistory(env, component, componentPath, orderedHistory, callback);
+                    }
+                });
+            };
+
+            if(onlyDoChangesets){
+                return doChangesets();
+            }else{
+                // Get upcoming baselines
+                echoAndExec(null, [env.scm, ' show status -i in:b -j'], {
+                    cwd: componentPath
+                }, function(err, stdout, stderr) {
+                    if(err){
+                        winston.error('Error running scm show status [stderr]:', stderr);
+                        winston.error('Error running scm show status [stdout]:', stdout);
+                        return callback(err);
+                    }
+
+                    // winston.info(stdout);
+                    var jazzResponse = JSON.parse(stdout);
+
+                    // get the RTC change set history and reverse it to get it in
+                    // chronological order
+                    var baselineHistory;
+
+                    workspaceName = jazzResponse.workspaces[0].name;
+
+                    if (jazzResponse.workspaces[0].components[0]['incoming-baselines']) {
+                        baselineHistory = jazzResponse.workspaces[0].components[0]['incoming-baselines'].reverse();
+                    } else {
+                        baselineHistory = [];
+                    }
+
+                    module.exports.processBaselineHistory(env, component, componentPath, baselineHistory, function(err){
                         if(err){
-                            winston.error('Error running scm show status [stderr]:', stderr);
-                            winston.error('Error running scm show status [stdout]:', stdout);
+                            winston.error('Error running processBaselineHistory:', err);
                             return callback(err);
                         }
 
-                        // winston.info(stdout);
-                        var jazzResponse = JSON.parse(stdout);
-
-                        // get the RTC change set history and reverse it to get it in
-                        // chronological order
-                        var orderedHistory = [];
-
-                        if (jazzResponse.workspaces[0].components[0]['incoming-changes']){
-                            orderedHistory =
-                                orderedHistory.concat(jazzResponse.workspaces[0].components[0]['incoming-changes'].reverse());
-                        }
-
-                        if (checkLastCommit) {
-                            echoAndExec(null, [env.scm, 'show history -j -m 1'], {
-                                cwd: componentPath
-                            }, function(err, stdout, stderr) {
-                                if(err){
-                                    winston.error('Error running scm show history [stderr]:', stderr);
-                                    winston.error('Error running scm show history [stdout]:', stdout);
-                                    return callback(err);
-                                }
-
-                                var jazzResponse = JSON.parse(stdout);
-                                var changes = jazzResponse.changes;
-
-                                orderedHistory = changes.concat(orderedHistory);
-                                module.exports.processChangesetHistory(env, component, componentPath, orderedHistory, callback, true);
-                            });
-                        }else{
-                            module.exports.processChangesetHistory(env, component, componentPath, orderedHistory, callback);
-                        }
+                        doChangesets();
                     });
                 });
-            });
+            }
         }, function(err){
             // Done?
             if(err){
