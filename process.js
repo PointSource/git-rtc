@@ -56,6 +56,8 @@ module.exports = {
             winston.info('[process] starting on:', component, checkLastCommit);
             var componentPath = path.resolve(rtcWorkspacePath, component);
 
+            var orderedHistory = [];
+
             var doChangesets = function(){
                 // Get upcoming changesets
                 echoAndExec(null, [env.scm, ' show status -i in:c -j'], {
@@ -72,7 +74,6 @@ module.exports = {
 
                     // get the RTC change set history and reverse it to get it in
                     // chronological order
-                    var orderedHistory = [];
 
                     if (jazzResponse.workspaces[0].components[0]['incoming-changes']){
                         orderedHistory =
@@ -101,33 +102,39 @@ module.exports = {
                 });
             };
 
-            if(onlyDoChangesets){
-                return doChangesets();
-            }else{
-                // Get upcoming baselines
-                echoAndExec(null, [env.scm, ' show status -i in:b -j'], {
-                    cwd: componentPath
-                }, function(err, stdout, stderr) {
-                    if(err){
-                        winston.error('Error running scm show status [stderr]:', stderr);
-                        winston.error('Error running scm show status [stdout]:', stdout);
-                        return callback(err);
+            // Get upcoming baselines
+            echoAndExec(null, [env.scm, ' show status -i in:b -j'], {
+                cwd: componentPath
+            }, function(err, stdout, stderr) {
+                if(err){
+                    winston.error('Error running scm show status [stderr]:', stderr);
+                    winston.error('Error running scm show status [stdout]:', stdout);
+                    return callback(err);
+                }
+
+                // winston.info(stdout);
+                var jazzResponse = JSON.parse(stdout);
+
+                // get the RTC change set history and reverse it to get it in
+                // chronological order
+                var baselineHistory;
+
+                workspaceName = jazzResponse.workspaces[0].name;
+
+                if (jazzResponse.workspaces[0].components[0]['incoming-baselines']) {
+                    baselineHistory = jazzResponse.workspaces[0].components[0]['incoming-baselines'].reverse();
+                } else {
+                    baselineHistory = [];
+                }
+
+                if(onlyDoChangesets){
+                    var i;
+                    for(i=0; i<baselineHistory.length; i++){
+                        orderedHistory =
+                            orderedHistory.concat(baselineHistory[i].changes.reverse());
                     }
-
-                    // winston.info(stdout);
-                    var jazzResponse = JSON.parse(stdout);
-
-                    // get the RTC change set history and reverse it to get it in
-                    // chronological order
-                    var baselineHistory;
-
-                    workspaceName = jazzResponse.workspaces[0].name;
-
-                    if (jazzResponse.workspaces[0].components[0]['incoming-baselines']) {
-                        baselineHistory = jazzResponse.workspaces[0].components[0]['incoming-baselines'].reverse();
-                    } else {
-                        baselineHistory = [];
-                    }
+                    doChangesets();
+                }else{
 
                     module.exports.processBaselineHistory(env, component, componentPath, baselineHistory, function(err){
                         if(err){
@@ -137,8 +144,8 @@ module.exports = {
 
                         doChangesets();
                     });
-                });
-            }
+                }
+            });
         }, function(err){
             // Done?
             if(err){
